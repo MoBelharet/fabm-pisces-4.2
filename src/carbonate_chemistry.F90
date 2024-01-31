@@ -397,10 +397,10 @@ contains
          zsal  = salinprac !(ji,jj,1) + ( 1.- tmask(ji,jj,1) ) * 35.
          !                             ! LN(K0) OF SOLUBILITY OF CO2 (EQ. 12, WEISS, 1980)
          !                             !     AND FOR THE ATMOSPHERE FOR NON IDEAL GAS
-         zcek1 = 9345.17/ztkel - 60.2409 + 23.3585 * LOG(zt) + zsal*(0.023517 - 0.00023656*ztkel    &
-         &       + 0.0047036e-4*ztkel**2)
+         zcek1 = 9050.69/ztkel - 58.0931 + 22.2940 * LOG(zt) + zsal*(0.027766 - 0.00025888*ztkel    &
+         &       + 0.0050578e-4*ztkel**2)
 
-         chemc(1) = EXP( zcek1 ) * 1E-6 * rhop / 1000. ! mol/(L atm)
+         chemc(1) = EXP( zcek1 ) * 1E-6  ! mol/(L atm)
          chemc(2) = -1636.75 + 12.0408*ztkel - 0.0327957*ztkel**2 + 0.0000316528*ztkel**3
          chemc(3) = 57.7 - 0.118*ztkel
 
