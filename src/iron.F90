@@ -11,10 +11,10 @@ module pisces_iron
 
    type, extends(type_particle_model), public :: type_pisces_iron
       type (type_state_variable_id) :: id_fer, id_sfe, id_bfe
-      type (type_dependency_id) :: id_tempis, id_salinprac, id_xdiss, id_doc, id_poc, id_goc, id_cal, id_gsi, id_hi, id_oxy, id_etot, id_gdept_n, id_zdust, id_etot_ndcy
+      type (type_dependency_id) :: id_tempis, id_salinprac, id_xdiss, id_doc, id_poc, id_goc, id_cal, id_gsi, id_hi, id_oxy, id_etot, id_gdept_n, id_zdust, id_etot_ndcy,id_chemo2, id_consfe3,id_nitrfac, id_no3
       type (type_surface_dependency_id) :: id_gphit, id_fr_i
-      type (type_diagnostic_variable_id) :: id_scav, id_coll, id_Fe3, id_FeL1, id_zTL1
-      real(rk) :: ligand, xlam1, xlamdust, kfep, wdust, light
+      type (type_diagnostic_variable_id) :: id_scav, id_coll, id_Fe3, id_FeL1, id_zTL1,id_xfecolagg, id_plig, id_zfeprecip, id_xcoagfe
+      real(rk) :: ligand, xlam1, xlamdust, kfep, wdust, light, scaveff
    contains
       procedure :: initialize
       procedure :: do
@@ -36,6 +36,7 @@ contains
       call self%get_parameter(self%xlamdust, 'xlamdust', 'd-1 mg-1 L', 'scavenging rate of dust', default=150.0_rk)
       call self%get_parameter(self%kfep, 'kfep', 'd-1', 'nanoparticle formation rate constant', default=0.01_rk)
       call self%get_parameter(self%light, 'light', 'W m-2', 'light limitation parameter for photolysis', default=50._rk)
+      call self%get_parameter(self%scaveff, 'scaveff' , '1' , 'Fraction of scavenged Fe that goes to POFe', default=1._rk)
 
       call self%register_state_dependency(self%id_fer, 'fer', 'mol Fe L-1', 'iron')
       call self%register_state_dependency(self%id_sfe, 'sfe', 'mol Fe L-1', 'small particulate organic iron')
@@ -46,12 +47,18 @@ contains
       call self%register_diagnostic_variable(self%id_Fe3, 'Fe3', 'nmol Fe L-1', 'iron III concentration')
       call self%register_diagnostic_variable(self%id_FeL1, 'FeL1', 'nmol L-1', 'complexed iron concentration with L1')
       call self%register_diagnostic_variable(self%id_zTL1, 'zTL1', 'nmol L-1', 'total L1 concentration')
+      call self%register_diagnostic_variable(self%id_xfecolagg,'xfecolagg','1' ,'Refractory diagnostic concentration of ligands')
+      call self%register_diagnostic_variable(self%id_plig, 'plig', '1','Fraction of ligands')
+      call self%register_diagnostic_variable(self%id_zfeprecip, 'zfeprecip','mmolFe L-1 s-1' ,'Precipitation of Fe')
+      call self%register_diagnostic_variable(self%id_xcoagfe,'xcoagfe','mol C L-1','coagulation of colloidal iron')
 
       call self%register_dependency(self%id_doc, 'doc', 'mol C L-1', 'dissolved organic carbon')
       call self%register_dependency(self%id_poc, 'poc', 'mol C L-1', 'small particulate organic carbon')
       call self%register_dependency(self%id_goc, 'goc', 'mol C L-1', 'large particulate organic carbon')
       call self%register_dependency(self%id_cal, 'cal', 'mol C L-1', 'calcite')
       call self%register_dependency(self%id_gsi, 'gsi', 'mol Si L-1', 'large particulate organic silicon')
+      call self%register_dependency(self%id_no3, 'no3', 'mol C L-1', 'nitrate')
+      call self%register_dependency(self%id_nitrfac, 'nitrfac', '1', 'denitrification factor computed from O2 levels')
 
       call self%request_coupling_to_model(self%id_doc, 'dom', 'c')
       call self%request_coupling_to_model(self%id_poc, 'pom', 'c')
@@ -71,17 +78,21 @@ contains
       call self%register_dependency(self%id_zdust, 'zdust', 'g m-2', 'dust concentration')
       call self%register_dependency(self%id_etot_ndcy, 'etot_ndcy', 'W m-2', 'daily mean PAR')
       call self%register_dependency(self%id_fr_i, standard_variables%ice_area_fraction)
+      call self%register_dependency(self%id_chemo2, 'chemo2', 'mol O2 (L atm)-1', 'solubility')
+      call self%register_dependency(self%id_consfe3, 'consfe3', '       mol Fe L-1', 'iron consumption')
+
    end subroutine
 
    subroutine do(self, _ARGUMENTS_DO_)
       class (type_pisces_iron), intent(in) :: self
       _DECLARE_ARGUMENTS_DO_
 
-      real(rk) :: fer, doc, poc, goc, cal, gsi, hi, oxy, etot, xdiss, gphit, tempis, salinprac, gdept_n
+      real(rk) :: fer, doc, poc, goc, cal, gsi, hi, oxy, etot, xdiss, gphit, tempis, salinprac, gdept_n, no3
       real(rk) :: ztkel, zsal, zis, fekeq, ztkel1, fesol(5)
-      real(rk) :: ztotlig, zTL1, zkeq, zfesatur, ztfe, zFe3, zFeL1, zdust, zhplus, fe3sol, zfeequi, zfecoll, precip, ztrc
+      real(rk) :: ztotlig, zTL1, zkeq, zfesatur, ztfe, zFe3, zFeL1, zdust, zhplus, fe3sol, zfeequi, zfecoll, precip, ztrc, precipno3, zfeprecip
       real(rk) :: zxlam, zlam1a, zlam1b, zscave, zdenom1, zdenom2, zlamfac, zdep, zcoag, zaggdfea, zaggdfeb
       real(rk) :: etot_ndcy, fr_i, zlight, zsoufer
+      real(rk) :: chemo2, xfecolagg, zklight, consfe3, za1, plig, nitrfac, xcoagfe
 
       _LOOP_BEGIN_
          _GET_(self%id_fer, fer)
@@ -90,6 +101,7 @@ contains
          _GET_(self%id_goc, goc)
          _GET_(self%id_cal, cal)
          _GET_(self%id_gsi, gsi)
+         _GET_(self%id_no3, no3)
          _GET_(self%id_hi, hi)
          _GET_(self%id_oxy, oxy)
          _GET_(self%id_etot, etot)
@@ -99,6 +111,9 @@ contains
          _GET_(self%id_salinprac, salinprac)
          _GET_(self%id_gdept_n, gdept_n)
          _GET_(self%id_zdust, zdust)
+         _GET_(self%id_chemo2, chemo2)
+         _GET_(self%id_consfe3, consfe3)
+         _GET_(self%id_nitrfac, nitrfac)
 
          ztkel = tempis + 273.15_rk
          zsal  = salinprac !(ji,jj,1) + ( 1.- tmask(ji,jj,1) ) * 35.
@@ -117,14 +132,19 @@ contains
          ! Total ligand concentration : Ligands can be chosen to be constant or variable
          ! Parameterization from Tagliabue and Voelker (2011)
          ! -------------------------------------------------
-         IF( ln_ligvar ) THEN
-            ztotlig =  0.09 * doc * 1E6 + self%ligand * 1E9    ! Jorn: Eq 67 (note max operator in that Eq has no effect)
-            ztotlig =  MIN( ztotlig, 10. )
+
+         xfecolagg = self%ligand * 1E9 + MAX(0., chemo2 - oxy ) / 400.E-6
+
+         IF( ln_ligand ) THEN  ; !ztotlig = lgw * 1E9      ! Jorn: TODO
          ELSE
-           IF( ln_ligand ) THEN  ;   !ztotlig = lgw * 1E9      ! Jorn: TODO
-           ELSE                  ;   ztotlig = self%ligand * 1E9
-           ENDIF
+            IF( ln_ligvar ) THEN
+               ztotlig =  0.09 * 0.667 * doc * 1E6 + xfecolagg
+               ztotlig =  MIN( ztotlig, 10. )
+            ELSE
+               ztotlig = self%ligand * 1E9
+            ENDIF
          ENDIF
+          
 
          ! ------------------------------------------------------------
          !  from Aumont and Bopp (2006)
@@ -133,69 +153,96 @@ contains
          ! ------------------------------------------------------------
          zTL1  = ztotlig
          zkeq            = fekeq
+         zklight         = 4.77E-7 * etot * 0.5 / ( 10**(-6.3) )
+         zconsfe =  consfe3 / ( 10**(-6.3) ) 
          zfesatur        = zTL1 * 1E-9
-         ztfe            = fer
+         ztfe            = (1.0 + zklight) * fer
+
          ! Fe' is the root of a 2nd order polynom
-         zFe3 = ( -( 1. + zfesatur * zkeq - zkeq * ztfe )               &
-            &              + SQRT( ( 1. + zfesatur * zkeq - zkeq * ztfe )**2       &
-            &              + 4. * ztfe * zkeq) ) / ( 2. * zkeq )    ! Jorn: Eq 65
-         zFe3 = zFe3 * 1E9                    ! Jorn: free inorganic iron (nmol/L)
-         zFeL1 = MAX( 0., fer * 1E9 - zFe3 )  ! Jorn: "complexed" iron (nmol/L)
+         za1 =  1. + zfesatur * zkeq + zklight +  zconsfe - zkeq * fer
+          
+         zFe3  = ( -1 * za1 + SQRT( za1**2 + 4. * ztfe * zkeq) ) / (2. * zkeq + rtrn ) ! Eq 65
+         
+         zFeL1 = MAX( 0., fer - zFe3 )  ! Jorn: "complexed" iron (nmol/L)
+         
          _SET_DIAGNOSTIC_(self%id_Fe3, zFe3)
          _SET_DIAGNOSTIC_(self%id_FeL1, zFeL1)
          _SET_DIAGNOSTIC_(self%id_zTL1, zTL1)
 
-         ! Scavenging rate of iron. This scavenging rate depends on the load of particles of sea water. 
-         ! This parameterization assumes a simple second order kinetics (k[Particles][Fe]).
-         ! Scavenging onto dust is also included as evidenced from the DUNE experiments.
+         plig =  MAX( 0., ( zFeL1 / ( fer + rtrn ) ) )
+
+         IF (ln_ligand) THEN
+           zfecoll = 0.5 * zFeL1 * MAX(0., ztotlig - xfecolagg) / ( ztotlig + rtrn ) 
+         ELSE
+            IF(ln_ligvar) THEN
+               zfecoll = 0.5 * zFeL1 * MAX(0., ztotlig - xfecolagg ) / ( ztotlig + rtrn )
+            ELSE
+               zfecoll = 0.5 * zFeL1 * MAX(0., 0.09 * 0.667 * doc * 1E6 )/ ( ztotlig + rtrn )
+            ENDIF
+         ENDIF
+
+         ! Scavenging rate of iron. This scavenging rate depends on the load of
+         ! particles of sea water. 
+         ! This parameterization assumes a simple second order kinetics
+         ! (k[Particles][Fe]).
+         ! Scavenging onto dust is also included as evidenced from the DUNE
+         ! experiments.
          ! --------------------------------------------------------------------------------------
+
          zhplus  = max( rtrn, hi )
          fe3sol  = fesol(1) * ( zhplus**3 + fesol(2) * zhplus**2  &
          &         + fesol(3) * zhplus + fesol(4)     &
          &         + fesol(5) / zhplus )
          !
-         zfeequi = zFe3 * 1E-9
-         zfecoll = 0.5 * zFeL1 * 1E-9   ! Jorn: Eq 66
+         !zfeequi = zFe3 * 1E-9
          ! precipitation of Fe3+, creation of nanoparticles
-         precip = MAX( 0., ( zFe3 * 1E-9 - fe3sol ) ) * self%kfep * xstep   ! Jorn: replaces Eq 62?
+         precip = MAX( 0., ( zFe3  - fe3sol ) ) * self%kfep * xstep * ( 1.0 - nitrfac )   ! Jorn: replaces Eq 62?
+         precipno3 = 2.0 * 130.0 * no3 * nitrfac * xstep * zFe3
+         zfeprecip = precip + precipno3
          !
-         ztrc   = ( poc + goc + cal + gsi ) * 1.e6 
-         IF (ln_ligand) THEN
-            zxlam  = self%xlam1 * MAX( 1.E-3, EXP(-2 * etot / 10. ) * (1. - EXP(-2 * oxy / 100.E-6 ) ))
-         ELSE
-            zxlam  = self%xlam1 * 1.0
-         ENDIF
-         zlam1b = 3.e-5 + self%xlamdust * zdust + zxlam * ztrc    ! Jorn: Eq 50a, note lambda_fe^in is here hardcoded to 3.e-5 (same value as in paper)
-         zscave = zfeequi * zlam1b * xstep                        ! Jorn: Eq 50b
+         ztrc   = MAX( ( poc + goc + cal + gsi ) * 1.e6 , rtrn)
+         
+         zxlam  = MAX( 1.E-3, (1. - EXP(-2 * oxy / 100.E-6 )))
+         zlam1b = 3.e-5 + ( self%xlamdust * zdust + self%xlam1 * ztrc ) * zxlam
+         zscave = zFe3 * zlam1b * xstep
+         
+         zlam1a   = ( 12.0  * 0.3 * doc + 9.05  * poc ) * xdiss    &
+                 &    + ( 2.49  * poc )     &
+                 &    + ( 127.8 * 0.3 * doc + 725.7 * poc )
 
-         ! Compute the different ratios for scavenging of iron
-         ! to later allocate scavenged iron to the different organic pools
-         ! ---------------------------------------------------------
-         zdenom1 = zxlam * poc / zlam1b
-         zdenom2 = zxlam * goc / zlam1b
+         zaggdfea = zlam1a * xstep * zfecoll  !Eq 61a - but Brownian POC term (a4) missing
+         zlam1b   = ( 1.94 * xdiss + 1.37 ) * goc
+         zaggdfeb = zlam1b * xstep * zfecoll  ! Eq 61b
+         
+         xcoagfe = zlam1a + zlam1b
 
          !  Increased scavenging for very high iron concentrations found near the coasts 
          !  due to increased lithogenic particles and let say it is unknown processes (precipitation, ...)
          !  -----------------------------------------------------------
-         zlamfac = MAX( 0.e0, ( gphit + 55.) / 30. )
-         zlamfac = MIN( 1.  , zlamfac )
-         zdep    = MIN( 1., 1000. / gdept_n )
-         zcoag   = 1E-4 * ( 1. - zlamfac ) * zdep * xstep * fer
+         !zlamfac = MAX( 0.e0, ( gphit + 55.) / 30. )
+         !zlamfac = MIN( 1.  , zlamfac )
+         !zdep    = MIN( 1., 1000. / gdept_n )
+         !zcoag   = 1E-4 * ( 1. - zlamfac ) * zdep * xstep * fer
 
          !  Compute the coagulation of colloidal iron. This parameterization 
          !  could be thought as an equivalent of colloidal pumping.
          !  It requires certainly some more work as it is very poorly constrained.
          !  ----------------------------------------------------------------
-         zlam1a   = ( 0.369  * 0.3 * doc + 102.4  * poc ) * xdiss    &
-               &      + ( 114.   * 0.3 * doc )
-         zaggdfea = zlam1a * xstep * zfecoll    ! Jorn: Eq 61a - but Brownian POC term (a4) missing
          !
-         zlam1b   = 3.53E3 * goc * xdiss
-         zaggdfeb = zlam1b * xstep * zfecoll    ! Jorn: Eq 61b
          !
-         _ADD_SOURCE_(self%id_fer, - zscave - zaggdfea - zaggdfeb - zcoag - precip)
-         _ADD_SOURCE_(self%id_sfe, + zscave * zdenom1 + zaggdfea)
-         _ADD_SOURCE_(self%id_bfe, + zscave * zdenom2 + zaggdfeb)
+         _ADD_SOURCE_(self%id_fer, - zscave - zaggdfea - zaggdfeb - zfeprecip)
+         _ADD_SOURCE_(self%id_sfe, zscave * self%scaveff * poc / ztrc   + zaggdfea)
+         _ADD_SOURCE_(self%id_bfe, zscave * self%scaveff * poc / ztrc   + zaggdfeb)
+
+         ! Precipitated iron is supposed to be permanently lost.
+         ! Scavenged iron is supposed to be released back to seawater
+         ! when POM is solubilized. This is highly uncertain as probably
+         ! a significant part of it may be rescavenged back onto 
+         ! the particles. An efficiency factor is applied that is read
+         ! in the namelist. 
+         ! See for instance Tagliabue et al. (2019).
+         ! Aggregated FeL is considered as biogenic Fe as it 
+         ! probably remains  complexed when the particle is solubilized.
          _SET_DIAGNOSTIC_(self%id_scav, zscave)
          _SET_DIAGNOSTIC_(self%id_coll, zaggdfea + zaggdfeb)
          !

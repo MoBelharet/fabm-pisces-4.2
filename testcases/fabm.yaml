@@ -239,6 +239,9 @@ instances:
       etot: optics/etot
       zdust: dust/zdust
       etot_ndcy: optics/etot_ndcy
+      chemo2: oxy/chemo2
+      nitrfac: oxy/nitrfac
+      no3: no3/c
   nitrification:
     model: pisces/nitrification
     coupling:
