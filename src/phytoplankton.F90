@@ -15,13 +15,13 @@ module pisces_phytoplankton
       type (type_state_variable_id)     :: id_c, id_ch, id_fe, id_si, id_fer
       type (type_state_variable_id)     :: id_no3, id_nh4, id_po4, id_sil, id_biron, id_doc, id_dic, id_tal, id_oxy
       type (type_state_variable_id)     :: id_poc, id_sfe, id_goc, id_gsi, id_bfe, id_cal, id_prodpoc, id_prodgoc
-      type (type_dependency_id)         :: id_tem, id_gdept_n, id_xdiss
+      type (type_dependency_id)         :: id_tem, id_gdept_n, id_xdiss, id_plig
       type (type_dependency_id)         :: id_pe1, id_pe2, id_pe3, id_etot_ndcy, id_etot_w
       type (type_surface_dependency_id) :: id_zstrn, id_hmld, id_heup_01, id_etot_wm
       type (type_surface_dependency_id) :: id_gphit, id_fr_i, id_xksi_
       type (type_horizontal_dependency_id) :: id_xksi
-      type (type_diagnostic_variable_id) :: id_quota, id_xfracal, id_pcal
-      type (type_diagnostic_variable_id) :: id_zlim1, id_zlim2, id_zlim3, id_zlim4, id_xlim
+      type (type_diagnostic_variable_id) :: id_quota, id_xfracal, id_pcal,id_sizep
+      type (type_diagnostic_variable_id) :: id_zlim1, id_zlim2, id_zlim3, id_zlim4, id_xlim, id_sizea
       type (type_diagnostic_variable_id) :: id_PPPHY, id_PPNEW, id_PBSi, id_PFe
       type (type_diagnostic_variable_id) :: id_zprmax, id_Mu, id_Llight
 
@@ -194,6 +194,8 @@ contains
       call self%request_coupling(self%id_etot_w, 'par/etot')
       call self%request_coupling(self%id_etot_wm, 'par/etotm')
 
+      call self%register_dependency(self%id_plig, 'plig', '1','Fraction of ligands')
+
       call self%register_state_dependency(self%id_no3, 'no3', 'mol C L-1', 'nitrate')
       call self%register_state_dependency(self%id_nh4, 'nh4', 'mol C L-1', 'ammonium')
       call self%register_state_dependency(self%id_po4, 'po4', 'mol C L-1', 'phosphate')
@@ -226,12 +228,15 @@ contains
       call self%register_diagnostic_variable(self%id_PPNEW, 'PPNEW', 'mol C m-3 s-1', 'new primary production')
       if (self%diatom) call self%register_diagnostic_variable(self%id_PBSi, 'PBSi', 'mol Si m-3 s-1', 'biogenic silica production')
       call self%register_diagnostic_variable(self%id_PFe, 'PFe', 'mol Fe m-3 s-1', 'biogenic iron production')
-      call self%register_diagnostic_variable(self%id_zprmax, 'mumax', 's-1', 'maximum growth rate after temperature correction')
+      call self%registerdiagnostic_variable(self%id_zprmax, 'mumax', 's-1', 'maximum growth rate after temperature correction')
       call self%register_diagnostic_variable(self%id_Mu, 'Mu', 's-1', 'realized growth rate')
       call self%register_diagnostic_variable(self%id_Llight, 'Llight', '1', 'light limitation term')
       if (self%calcify) call self%register_diagnostic_variable(self%id_xfracal, 'xfracal', '1', 'calcifying fraction')
       call self%register_diagnostic_variable(self%id_pcal, 'pcal', 'mol m-3 s-1', 'calcite production')
       call self%add_to_aggregate_variable(calcite_production, self%id_pcal)
+
+      call self%register_diagnostic_variable(self%id_sizep, 'sizep','-','Mean relative size', initial_value=1._rk) ! Mokrane: TO DO: verify if initial_value can be applied for register_diagnostic_variable
+      call self%register_diagnostic_variable(self%id_sizea, 'sizea','-','Mean relative size at next time-step')
 
    end subroutine initialize
 
@@ -286,15 +291,15 @@ contains
 
       ! Coefficient for iron limitation - Jorn Eq 20
       real(rk), parameter ::  xcoef1   = 0.0016  / 55.85
-      real(rk), parameter ::  xcoef2   = 1.21E-5 * 14. / 55.85 / 7.625 * 0.5 * 1.5
-      real(rk), parameter ::  xcoef3   = 1.15E-4 * 14. / 55.85 / 7.625 * 0.5
+      real(rk), parameter ::  xcoef2   = 1.21E-5 * 14. / 55.85 / 7.3125 * 0.5 * 1.5
+      real(rk), parameter ::  xcoef3   = 1.15E-4 * 14. / 55.85 / 7.3125 * 0.5
 
       real(rk) :: c, ch, fe, si, fer
       real(rk) :: nh4, no3, po4, biron, sil
       real(rk) :: tem, gdept_n, zstrn, hmld, heup_01, etot_ndcy, etot_w, etot_wm, gphit, fr_i
-      real(rk) :: tgfunc, zconc, zconc2, z1_trb, concfe, zconcno3, zconcnh4, zdenom, xno3, xnh4, xpo4, zlim1, zlim2, xlim, xlimsi
+      real(rk) :: tgfunc, zconc, zconc2, z1_trb, concfe, zconcno3, zconcnh4, zdenom, xno3, xnh4, xpo4, zlim1, zlim2, xlim, xlimsi, sizep, xfer
       real(rk) :: xksi, zlim3
-      real(rk) :: zratio, zironmin, zlim4, xlimfe
+      real(rk) :: zratio, zironmin, zlim4, xlimfe, xqfuncfec, znutlimtot, zlimno3, zlimnh4
       real(rk) :: zprmax, zval, zmxl_chl, zmxl_fac, zpr
       real(rk) :: ztn, zadap, pislope, zpislopead, zpislope, zprch
       real(rk) :: zlim, zsilim, zsilfac, zsiborn, zsilfac2, zysopt
@@ -302,6 +307,7 @@ contains
       real(rk) :: ztot, zprod, zprochl, chlcm_n, quota
       real(rk) :: ztem1, ztem2, zetot1, zetot2, xfracal
       real(rk) :: xfraresp, xfratort, zcompa, zsizerat, zrespp, ztortp, zmortp, zfactfe, zfactch, zfactsi, zprcaca, xdiss
+      real(rk) :: zbiron, plig, znutlim, faf, zfalim, sizea, zcoef
 
       _LOOP_BEGIN_
          _GET_(self%id_c, c)                      ! carbon (mol/L)
@@ -313,6 +319,9 @@ contains
          _GET_(self%id_po4, po4)                  ! phosphate (mol C/L - phosphorus units multiplied with C:P ratio of biomass)
          _GET_(self%id_biron, biron)              ! bioavailable iron (mol Fe/L)
          _GET_(self%id_sil, sil)                  ! ambient silicate concentration (mol Si/L)
+
+         _GET_(self%id_plig, plig)
+
          if (self%calcify) _GET_(self%id_fer,  fer)                 ! ambient iron concentration (mol Fe/L)
 
          _GET_(self%id_tem, tem)                  ! temperature (degrees Celsius)
@@ -325,6 +334,7 @@ contains
          _GET_(self%id_etot_w, etot_w)            ! daily mean Photosynthetically Available Radiation (W m-2) weighted by absorption per waveband
          _GET_SURFACE_(self%id_etot_wm, etot_wm)  ! daily mean Photosynthetically Available Radiation (W m-2) weighted by absorption per waveband, averaged over mixed/euphotic layer
          _GET_SURFACE_(self%id_fr_i, fr_i)        ! sea ice area fraction (1)
+      
 
          IF (gdept_n > hmld) etot_wm = etot_w     ! below turbocline: the experienced daily mean PAR is the actual in-situ value (not the average over the mixing layer)
 
@@ -336,37 +346,60 @@ contains
 
          ! ======================================================================================
          ! Jorn: From p4zlim
-
-         zconc   = MAX( 0._rk , c - self%xsize ) ! Jorn: Eq 7b, biomass (mol C/L) in large cells
-         zconc2  = c - zconc                     ! Jorn: equivalent to Eq 7a, carbon biomass (mol C/L) in small cells
+         
          z1_trb   = 1._rk / ( c + rtrn )         ! 1 / carbon biomass
+         concfe = self%concfer * self%sizep**0.81
+         zconcno3           = self%concno3 * self%sizep**0.81
+         zconcnh4        = self%concnh4 * self%sizep**0.81 
+         
 
-         concfe   = MAX( self%concfer, ( zconc2 * self%concfer + self%concfer * self%xsizer * zconc ) * z1_trb ) ! Jorn: Eq 7c (18b), size-weighted iron half saturation
-         zconcno3 = MAX( self%concno3, ( zconc2 * self%concno3 + self%concno3 * self%xsizer * zconc ) * z1_trb ) ! Jorn: Eq 7c, size-weighted nitrate half saturation
-         zconcnh4 = MAX( self%concnh4, ( zconc2 * self%concnh4 + self%concnh4 * self%xsizer * zconc ) * z1_trb ) ! Jorn: Eq 7c, size-weighted ammonium half saturation
+         ! Computation of the optimal allocation parameters
+          ! Based on the different papers by Pahlow et al., and 
+          ! Smith et al.
+          ! ---------------------------------------------------
 
-         ! Michaelis-Menten Limitation term for nutrients - Jorn Eqs 6d, 6e
-         ! -----------------------------------------------
-         zdenom = 1._rk /  ( zconcno3 * zconcnh4 + zconcnh4 * no3 + zconcno3 * nh4 )
-         xno3 = no3 * zconcnh4 * zdenom
-         xnh4 = nh4 * zconcno3 * zdenom
-         !
-         zlim1    = xno3 + xnh4                ! Jorn: Eq 6c, nitrogen limitation (dimensionless)
-         zlim2    = po4 / ( po4 + zconcnh4 )   ! Jorn: Eq 6b: phosphorus limitation (dimensionless), note it uses NH4 half saturation (same units - concentration of carbon equivalents!)
-         if (self%diatom) then
+          zbiron = ( 75.0 * ( 1.0 - plig ) + plig ) * biron       
+          znutlim = zbiron / concfe
+          faf = MAX(0.01, MIN(0.99, 1. / ( SQRT(znutlim) + 1.) ) )
+          
+          ! Michaelis-Menten Limitation term by nutrients
+          ! Optimal parameterization by Smith and Pahlow series of 
+          ! papers is used. Optimal allocation is supposed independant
+          ! for all nutrients.         
+
+          ! Limitation of Fe uptake (Quota formalism)
+          zfalim = (1.-faf) / faf
+          xfer = (1. - faf) * zbiron / ( zbiron + zfalim * concfe )
+
+          ! Limitation of phytoplankton growth - Jorn Eqs 6d, 6e
+
+           zlimnh4 = nh4 / ( zconcno3 + nh4)
+           zlimno3 = no3 / ( zconcno3 + no3)
+           znutlimtot = ( nh4 + no3 ) / (zconcno3 + nh4 + no3 )
+           xnh4 = znutlimtot * 5.0 * zlimnh4 / ( zlimno3 + 5.0 * zlimnh4 + rtrn )
+           xno3 = znutlimtot * zlimno3 / ( zlimno3 + 5.0 * zlimnh4 + rtrn )
+
+           zlim1    = xno3 + xnh4
+           zlim2    = po4 / ( po4 + zconcnh4 )
+           
+           if (self%diatom) then
             ! Jorn: From p4zint
-            _GET_SURFACE_(self%id_xksi, xksi)
-            zlim3    = sil / ( sil + xksi )    ! Eq 11b
-         else
-            zlim3 = 1._rk
-         end if
-         zratio   = fe* z1_trb  ! Jorn: iron quota (based on internal iron pool, not ambient concentration!), mol Fe/mol C
-         zironmin = xcoef1 * ch * z1_trb + xcoef2 * zlim1 + xcoef3 * xno3  ! Eq 20, mol Fe/mol C
-         zlim4    = MAX( 0.,( zratio - zironmin ) / self%qfelim )   ! Jorn Eq 6f, iron limitation (dimensionless)
-         xpo4 = zlim2
-         xlimfe = MIN( 1., zlim4 )
-         xlim = MIN( zlim1, zlim2, zlim3, zlim4 )   ! Jorn: Eq 11a, combined N, P, (Si), Fe limitation factor (dimensionless)
-         xlimsi = MIN( zlim1, zlim2, zlim4 )        ! Jorn: Eq 6a (also part of Eq 23a): combined limitation by all nutrients (N, P, Fe) EXCEPT Si (dimensionless)
+             _GET_SURFACE_(self%id_xksi, xksi)
+             zlim3    = sil / ( sil + xksi )    ! Eq 11b
+           else
+              zlim3 = 1._rk
+           end if
+           zratio   = fe * z1_trb
+
+           zironmin = xcoef1 * ch * z1_trb + xcoef2 * zlim1 + xcoef3 * xno3
+           xqfuncfec = zironmin + self%qfelim
+           zlim4    = MAX( 0.,( zratio - zironmin ) / self%qfelim ) 
+           xpo4 = zlim2
+           xlimfe = MIN( 1., zlim4 )
+           xlim = MIN( zlim1, zlim2, zlim3, zlim4 )   ! Jorn: Eq 11a, combined N, P, (Si), Fe limitation factor (dimensionless)
+           xlimsi = MIN( zlim1, zlim2, zlim4 )        ! Jorn: Eq 6a (also part of Eq 23a): combined limitation by all nutrients (N, P, Fe) EXCEPT Si (dimensionless)
+
+
          ! ======================================================================================
 
          _SET_DIAGNOSTIC_(self%id_zlim1, zlim1)
@@ -528,27 +561,38 @@ contains
        !   CALL iom_put( "TPBFE"   , ( zprofen(:,:,:) + zprofed(:,:,:) ) * zfact * tmask(:,:,:)  )  ! total biogenic iron production
        !   CALL iom_put( "tintpp"  , tpp * zfact )  !  global total integrated primary production molC/s
        !ENDIF
+!=========================================================================================================================
+        ! FROM p4zlim.F90
+
+        ! Size estimation of phytoplankton based on total biomass
+        ! Assumes that larger biomass implies addition of larger cells
+         zcoef = c - MIN(self%xsize, c)
+         sizea = 1. + ( self%xsizer -1.0 ) * zcoef / ( self%xsize + zcoef )        
+         
 
          if (self%calcify) then
             ! Jorn: from p4zlim.F90, Eq 77
-            zlim1 =  ( no3 * self%concnh4 + nh4 * self%concno3 )    &
-               &   / ( self%concno3 * self%concnh4 + self%concnh4 * no3 + self%concno3 * nh4 )
+            zlim1  = xnh4 + xno3
             zlim2  = po4 / ( po4 + self%concnh4 )
-            zlim3  = fer / ( fer +  5.E-11_rk   )   ! iron half saturation hardcoded at 0.05 nmol/L (much lower than 1-3 nmol/L used for nanophytoplankotn and diatoms!)
-            ztem1  = MAX( 0._rk, tem )
+            zlim3  = fer / ( fer +  6.E-11)
+            ztem1  = MAX( 0._rk, tem + 1.8_rk)
             ztem2  = tem - 10._rk
             zetot1 = MAX( 0._rk, etot_ndcy - 1._rk) / ( 4._rk + etot_ndcy )
             zetot2 = 30._rk / ( 30._rk + etot_ndcy )
+   
 
             xfracal = self%caco3r * MIN( zlim1, zlim2, zlim3 )                  &
                &                  * ztem1 / ( 0.1_rk + ztem1 )                     &
-               &                  * MAX( 1._rk, c * 1.e6_rk / 2._rk )  &
+               &                  * MAX( 1._rk, c * self%xsize )  &
                &                  * zetot1 * zetot2               &
                &                  * ( 1._rk + EXP(-ztem2 * ztem2 / 25._rk ) )         &
                &                  * MIN( 1., 50._rk / ( hmld + rtrn ) )
             xfracal = MIN( 0.8_rk , xfracal )
             xfracal = MAX( 0.02_rk, xfracal )
+
             _SET_DIAGNOSTIC_(self%id_xfracal, xfracal)
+
+!=====================================================================================================================================
             xfraresp = 0.5_rk * xfracal   ! Jorn: fraction of material produced by linear mortality that is sent to large detritus pool
             xfratort = 0.5_rk * xfracal   ! Jorn: fraction of material produced by quadratic mortality that is sent to large detritus pool
          else

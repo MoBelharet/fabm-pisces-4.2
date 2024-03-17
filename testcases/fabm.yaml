@@ -107,6 +107,7 @@ instances:
       zstrn: daylength/zstrn
       pom: pom
       gom: gom
+      plig: fer/plig
     initialization:
       c: 9.57e-8
       ch: 1.67e-7
@@ -141,6 +142,7 @@ instances:
       zstrn: daylength/zstrn
       pom: pom
       gom: gom
+      plig: fer/plig
     initialization:
       c: 4.24e-7
       ch: 1.02e-7
