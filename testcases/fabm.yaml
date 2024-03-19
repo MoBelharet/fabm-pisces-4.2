@@ -90,7 +90,7 @@ instances:
       concno3: 1.e-6
       concfer: 1.e-9
       chlcm: 0.033
-      xmort: 1e-8
+      xmort: 1.e-9
     coupling:
       no3: no3/c
       nh4: nh4/c

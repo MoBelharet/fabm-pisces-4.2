@@ -164,7 +164,7 @@ contains
 
          gdepw_n = gdepw_n + e3t_n
          IF (first .or. etot_ndcy >= pqsr100) heup    = gdepw_n  ! Euphotic layer depth
-         IF (first .or. etot_ndcy >= 0.50)    heup_01 = gdepw_n  ! Euphotic layer depth (light level definition)
+         IF (first .or. etot_ndcy >= 0.10)    heup_01 = gdepw_n  ! Euphotic layer depth (light level definition)
 
          IF (gdepw_n <= hmld) THEN
             zetmp1 = zetmp1 + etot      * e3t_n   ! integrating instantaneous PAR

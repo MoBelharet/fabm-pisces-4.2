@@ -55,12 +55,17 @@ contains
          ! SET DEGREE OF UNDER-/SUPERSATURATION
          excess = 1._rk - zomegaca
          zexcess0 = MAX( 0., excess )
-         zexcess  = zexcess0**self%nca
+         !zexcess  = zexcess0**self%nca
 
-         ! AMOUNT CACO3 (12C) THAT RE-ENTERS SOLUTION
-         !       (ACCORDING TO THIS FORMULATION ALSO SOME PARTICULATE
-         !       CACO3 GETS DISSOLVED EVEN IN THE CASE OF OVERSATURATION)
-         zdispot = self%kdca * zexcess * cal
+         IF( zomegaca < 0.8 ) THEN
+            zexcess = zexcess0**self%nca
+           ! AMOUNT CACO3 THAT RE-ENTERS SOLUTION
+            zdispot = self%kdca * zexcess * cal
+         ELSE
+            zexcess = zexcess0**0.11
+            zdispot = (self%kdca * 0.2**(self%nca - 0.11)) * zexcess * cal
+         ENDIF
+
          !  CHANGE OF [CO3--] , [ALK], PARTICULATE [CACO3],
          !       AND [SUM(CO2)] DUE TO CACO3 DISSOLUTION/PRECIPITATION
          zcaldiss  = zdispot / rmtss ! calcite dissolution   Jorn: dropped multiplication with rfact2 [time step in seconds]

@@ -94,7 +94,7 @@ contains
 
       call self%get_parameter(self%diatom, 'diatom', '', 'use silicate', default=.false.)
       call self%get_parameter(self%calcify, 'calcify', '', 'calcify', default=.false.)
-      call self%get_parameter(self%mumax0, 'mumax0', 'd-1', 'maximum growth rate at 0 degrees Celsius', default=0.8_rk)    ! default=0.8 in NEMO-PISCES 4 code, confirmed by Olivier Aumont 2021-04-21
+      call self%get_parameter(self%mumax0, 'mumax0', 'd-1', 'maximum growth rate at 0 degrees Celsius', default=0.65_rk)    ! default=0.8 in NEMO-PISCES 4 code, confirmed by Olivier Aumont 2021-04-21
       call self%get_parameter(bp, 'bp', '-', 'Temperature sensitivity of growth',default=1.066_rk)
       call self%get_parameter(self%logbp, 'logbp', '-', 'Temperature sensitivity of growth (log rate, overwrites bp if given explicitely)', default= log(bp))
       call self%get_parameter(self%fpday, 'fpday', '-', 'day-length factor for growth', default=1.5_rk) ! AC -07.12.2021 - Aumont et al. 2015, Eq 3a
@@ -308,6 +308,7 @@ contains
       real(rk) :: ztem1, ztem2, zetot1, zetot2, xfracal
       real(rk) :: xfraresp, xfratort, zcompa, zsizerat, zrespp, ztortp, zmortp, zfactfe, zfactch, zfactsi, zprcaca, xdiss
       real(rk) :: zbiron, plig, znutlim, faf, zfalim, sizea, zcoef
+      real(rk) :: zratiosi, zmaxsi
 
       _LOOP_BEGIN_
          _GET_(self%id_c, c)                      ! carbon (mol/L)
@@ -358,9 +359,9 @@ contains
           ! Smith et al.
           ! ---------------------------------------------------
 
-          zbiron = ( 75.0 * ( 1.0 - plig ) + plig ) * biron       
+          zbiron = ( 75._rk * ( 1._rk - plig ) + plig ) * biron       
           znutlim = zbiron / concfe
-          faf = MAX(0.01, MIN(0.99, 1. / ( SQRT(znutlim) + 1.) ) )
+          faf = MAX(0.01_rk, MIN(0.99_rk, 1._rk / ( SQRT(znutlim) + 1._rk) ) )
           
           ! Michaelis-Menten Limitation term by nutrients
           ! Optimal parameterization by Smith and Pahlow series of 
@@ -400,6 +401,8 @@ contains
            xlimsi = MIN( zlim1, zlim2, zlim4 )        ! Jorn: Eq 6a (also part of Eq 23a): combined limitation by all nutrients (N, P, Fe) EXCEPT Si (dimensionless)
 
 
+         zcoef = c - MIN(self%xsize, c )
+         sizea = 1._rk + ( self%xsizer -1._rk ) * zcoef / ( self%xsize + zcoef ) ! Mokrane : TO DO : declare sizea
          ! ======================================================================================
 
          _SET_DIAGNOSTIC_(self%id_zlim1, zlim1)
@@ -419,7 +422,7 @@ contains
             ENDIF
             zmxl_chl = zval / 24._rk  ! Jorn: from number of hours to fraction of day
             !zmxl_fac = 1.5_rk * zval / ( 12._rk + zval )  ! Jorn: Eq 3a in PISCES-v2 paper - but note that time spent in euphotic layer has already been incorporated in zval! Eqs 3b-3d are not used
-            zmxl_fac = self%fpday * zval / ( 12._rk + zval )  ! AC 07.12.2021 - fpday as parameter
+            zmxl_fac = 1._rk - exp( -0.26 * zval ) !self%fpday * zval / ( 12._rk + zval )  ! AC 07.12.2021 - fpday as parameter
 
             zpr = zprmax * zmxl_fac  ! Jorn: product of muP and f1*f2 (sort of - those have been changed) in Eq 2a, units are 1/s
 
@@ -427,11 +430,13 @@ contains
             !WHERE( zstrn(:,:) < 1.e0 ) zstrn(:,:) = 24. ! Jorn: seems unused???
 
             ! Computation of the P-I slope for nanos and diatoms (Jorn: product of alpha and chl:C)
-            ztn         = MAX( 0._rk, tem - 15._rk )
-            zadap       = self%xadap * ztn / ( 2._rk + ztn )
+            !ztn         = MAX( 0._rk, tem - 15._rk )
+            !zadap       = self%xadap * ztn / ( 2._rk + ztn )
             pislope = (self%pislope_s * zconc2 + self%pislope_l * zconc) * z1_trb   ! Weighted mean of PI slope (g C (g Chl)-1 d-1 (W m-2)-1) for small and large cells
-            zpislopead = pislope * ( 1._rk + zadap  * EXP( -0.25_rk * etot_w ) )  & ! PI slope multiplied with Chl/C, resulting units are d-1 (W m-2)-1. NB xadap = zadap = 0
-            &                   *ch / ( c * 12._rk + rtrn)                          ! g chl:g C
+            !zpislopead = pislope * ( 1._rk + zadap  * EXP( -0.25_rk * etot_w ) )  & ! PI slope multiplied with Chl/C, resulting units are d-1 (W m-2)-1. NB xadap = zadap = 0
+            !&                   *ch / ( c * 12._rk + rtrn)              ! g chl:g C
+
+            zpislopead = pislope * ch  /( c * 12. + rtrn)
 
             ! Computation of production function for Carbon - Jorn: Eq 2a in PISCES-v2 paper
             !  ---------------------------------------------
@@ -448,25 +453,36 @@ contains
             !  ---------------------------------------
             zval = MIN( xpo4, ( xnh4 + xno3 ) )   &    ! Jorn: nitrogen and phosphate limitation, divided by light limitation
             &      * zprmax / ( zpr + rtrn )
-            quota = MIN( 1., 0.2_rk + 0.8_rk * zval )
+            quota = MIN( 1., 0.3_rk + 0.7_rk * zval )
 
             IF( self%diatom ) THEN
                _GET_SURFACE_(self%id_gphit, gphit)
+               _GET_(self%id_si, si)
                   !    Si/C of diatoms - Jorn: section 4.1.5 in PISCES-v2 paper
                   !    ------------------------
                   !    Si/C increases with iron stress and silicate availability
                   !    Si/C is arbitrariliy increased for very high Si concentrations
                   !    to mimic the very high ratios observed in the Southern Ocean (silpot2)
                zlim  = sil / ( sil + self%xksi1 )                                                                             ! Jorn Eq 23c
-               zsilim = MIN( zpr / ( zprmax + rtrn ), xlimsi )                                                                ! Jorn Eq 23a
-               zsilfac = 4.4_rk * EXP( -4.23_rk * zsilim ) * MAX( 0._rk, MIN( 1._rk, 2.2_rk * ( zlim - 0.5_rk ) )  ) + 1._rk  ! Jorn Eq 22, 23b
+               zsilim = xlim * zpr / ( zprmax + rtrn )  !MIN( zpr / ( zprmax + rtrn ), xlimsi )                                                                ! Jorn Eq 23a
+               !zsilfac = 4.4_rk * EXP( -4.23_rk * zsilim ) * MAX( 0._rk, MIN( 1._rk, 2.2_rk * ( zlim - 0.5_rk ) )  ) + 1._rk  ! Jorn Eq 22, 23b
                zsiborn = sil * sil * sil
                IF (gphit < -30._rk ) THEN   ! threshold is 0 degrees in paper
-                  zsilfac2 = 1._rk + 2._rk * zsiborn / ( zsiborn + self%xksi2**3 )  ! Eq 22 (last part), 23d
+                  zsilfac = 1._rk + 2._rk * zsiborn / ( zsiborn + self%xksi2**3 )  ! Eq 22 (last part), 23d
                ELSE
-                  zsilfac2 = 1._rk +         zsiborn / ( zsiborn + self%xksi2**3 )  ! ??? 23d suggests this term is 1 for lat > 0
+                  zsilfac = 1._rk +         zsiborn / ( zsiborn + self%xksi2**3 )  ! ??? 23d suggests this term is 1 for lat > 0
                ENDIF
-               zysopt = self%grosip * zlim * zsilfac * zsilfac2  ! Eq 22 but it seems to miss the MIN(5.4, ...) clipping used there, realized Si / C uptake ratio
+               zratiosi = 1._rk - si / ( c + rtrn ) / ( zsilfac * self%grosip * 3.0 + rtrn )
+               zratiosi = MAX(0._rk, MIN(1._rk, zratiosi) )
+               zmaxsi  = (1._rk + 0.1_rk**4) * zratiosi**4 / ( zratiosi**4 + 0.1_rk**4 )
+
+               IF( xlimsi /= xlim ) THEN
+                  zysopt = zlim * zsilfac * self%grosip * 1._rk * zmaxsi
+               ELSE
+                  zysopt = zlim * zsilfac * self%grosip * 1._rk * zsilim**0.7 * zmaxsi
+               ENDIF
+
+               !zysopt = self%grosip * zlim * zsilfac * zsilfac2  ! Eq 22 but it seems to miss the MIN(5.4, ...) clipping used there, realized Si / C uptake ratio
             ELSE
                zysopt = 0._rk
             ENDIF
@@ -479,20 +495,27 @@ contains
             zprorca = zpr  * xlim* c                           ! total production (mol C/L/s), dropped multiplication with rfact2 [time step in seconds]
             zpronew  = zprorca* xno3 / ( xno3 + xnh4 + rtrn )  ! Eq 8, new production (mol C/L/s)
             !
-            zratio = fe / ( c * self%fecm + rtrn )   ! Jorn: internal iron pool relative to maximum value (dimensionless)
-            zmax   = MAX( 0., ( 1._rk - zratio ) / ABS( 1.05_rk - zratio ) )            ! ratio in Eq 17 (dimensionless)
-            zprofe = self%fecm * zprmax * ( 1.0 - fr_i )  &                             ! Increase in internal iron pool in mol Fe/L/s
-            &             * ( 4._rk - 4.5_rk * xlimfe / ( xlimfe + 0.5_rk ) )    &      ! Eq 19, note xlimfe is based on internal iron quota (not ambient concentration)
-            &             * biron / ( biron + concfe )  &                               ! Eq 18a
-            &             * zmax * c                                                    ! Jorn: dropped multiplication with rfact2 [time step in seconds]
+            zlimfac = xlim * zprch / ( zprmax + rtrn )
+            zsizetmp = 1._rk + 1.3_rk * ( self%xsizer - 1._rk ) * zlimfac**3/(0.3_rk + zlimfac**3)
+            sizea = min(self%xsizer, max( sizea, zsizetmp ) )
+
+            zfecm = xqfuncfec + ( self%fecm - xqfuncfec ) * ( xno3 + xnh4 )
+
+
+            zratio = 1._rk - MIN(1._rk, fe / ( c * zfecnm + rtrn ) ) !fe / ( c * self%fecm + rtrn )   ! Jorn: internal iron pool relative to maximum value (dimensionless)
+            zmax   = MAX( 0., MIN( 1._rk, zratio**2/ (0.05_rk**2+zratio**2) ) ) !MAX( 0., ( 1._rk - zratio ) / ABS( 1.05_rk - zratio ) )            ! ratio in Eq 17 (dimensionless)
+            zprofe = zfecm * zprmax(ji,jj,jk) * (1.0 - fr_i )  & !self%fecm * zprmax * ( 1.0 - fr_i )  &                             ! Increase in internal iron pool in mol Fe/L/s
+            &             * (1. + 0.8 * xno3 / ( rtrn + xno3  & !* ( 4._rk - 4.5_rk * xlimfe / ( xlimfe + 0.5_rk ) )    &      ! Eq 19, note xlimfe is based on internal iron quota (not ambient concentration)
+            &             + xnh4 ) * (1. - xfer ) )   & !* biron / ( biron + concfe )  &                               ! Eq 18a
+            &             * xfer * zmax * c !* zmax * c                                                    ! Jorn: dropped multiplication with rfact2 [time step in seconds]
 
             ! Computation of the chlorophyll production terms
             !  production terms for nanophyto. ( chlorophyll )
             ztot = etot_wm / ( zmxl_chl + rtrn )         ! Jorn: PAR/L_day in Eq 15a, the divison of 24h mean PAR by day length makes it equivalent to mean PAR experienced *during the daytime*
             zprod    = rday * zprorca * zprch * xlim     ! Eq15b Note zprorca was the increment in carbon (mol C/L) over a single time step, but we divide by timestep and thus have the rate of production
             zprochl = self%chlcmin * 12._rk * zprorca       ! Jorn: first part of Eq14, increase in Chl associated with increase in carbon (using carbon production and minimum Chl:C), units are g Chl/L/s
-            chlcm_n   = MIN ( self%chlcm, ( self%chlcm / (1. - 1.14 / 43.4 *tem)) * (1. - 1.14 / 43.4 * 20.))  ! temperature correction of max Chl?
-            zprochl = zprochl + (chlcm_n-self%chlcmin) * 12. * zprod / &
+            !chlcm_n   = MIN ( self%chlcm, ( self%chlcm / (1. - 1.14 / 43.4 *tem)) * (1. - 1.14 / 43.4 * 20.))  ! temperature correction of max Chl?
+            zprochl = zprochl + (self%chlcm-self%chlcmin) * 12. * zprod / &
                                     & (  zpislopead * ztot +rtrn)
          ELSE
             zprochl = 0._rk
@@ -503,10 +526,16 @@ contains
             zpr = 0._rk
             quota = 1._rk
          ENDIF
+         ! This variable must be declared as a diagnostic variable
+         ! it is used in iron.F90
+         ! ISSUE: it is dependeing on the sum of (zprofe * self%texcret) calculated for nano and diatoms
+         consfe3   = zprofe * self%texcret * 75._rk / ( rtrn + ( plig + 75._rk * (1._rk - plig ) ) * fer )
 
          _ADD_SOURCE_(self%id_ch, zprochl * self%texcret)
 
          !   Update the arrays TRA which contain the biological sources and sinks
+
+
          zproreg  = zprorca - zpronew    ! Regenerated production, equivalent to Eq 8 (part 2)
          zdocprod = self%excret * zprorca
          _ADD_SOURCE_(self%id_po4, - zprorca)
@@ -517,10 +546,13 @@ contains
          _ADD_SOURCE_(self%id_doc, zdocprod)
          _ADD_SOURCE_(self%id_oxy, o2ut * zproreg + ( o2ut + o2nit ) * zpronew)
          !
-         _ADD_SOURCE_(self%id_biron, -self%texcret * zprofe)
+         !_ADD_SOURCE_(self%id_biron, -self%texcret * zprofe)
+         _ADD_SOURCE_(self%id_fer, -self%texcret * zprofe)
          if (self%diatom) then
-            _ADD_SOURCE_(self%id_si, zprorca * zysopt * self%texcret)
-            _ADD_SOURCE_(self%id_sil, -self%texcret * zprorca * zysopt)
+         !   _ADD_SOURCE_(self%id_si, zprorca * zysopt * self%texcret)
+         !   _ADD_SOURCE_(self%id_sil, -self%texcret * zprorca * zysopt)
+            _ADD_SOURCE_(self%id_si, zprmax * zysopt * c * self%texcret)
+            _ADD_SOURCE_(self%id_sil, - zprmax * zysopt * c * self%texcret)
          end if
          _ADD_SOURCE_(self%id_dic, -zprorca)
          _ADD_SOURCE_(self%id_tal, rno3 * zpronew - rno3 * zproreg)
@@ -561,7 +593,6 @@ contains
        !   CALL iom_put( "TPBFE"   , ( zprofen(:,:,:) + zprofed(:,:,:) ) * zfact * tmask(:,:,:)  )  ! total biogenic iron production
        !   CALL iom_put( "tintpp"  , tpp * zfact )  !  global total integrated primary production molC/s
        !ENDIF
-!=========================================================================================================================
         ! FROM p4zlim.F90
 
         ! Size estimation of phytoplankton based on total biomass
@@ -592,13 +623,10 @@ contains
 
             _SET_DIAGNOSTIC_(self%id_xfracal, xfracal)
 
-!=====================================================================================================================================
-            xfraresp = 0.5_rk * xfracal   ! Jorn: fraction of material produced by linear mortality that is sent to large detritus pool
-            xfratort = 0.5_rk * xfracal   ! Jorn: fraction of material produced by quadratic mortality that is sent to large detritus pool
+            xfraresp = 0._rk   ! Jorn: fraction of material produced by linear mortality that is sent to large detritus pool
          else
             xfracal = 0._rk
             xfraresp = 1.0_rk   ! Jorn: fraction of material produced by linear mortality that is sent to large detritus pool
-            xfratort = 0.5_rk   ! Jorn: fraction of material produced by quadratic mortality that is sent to large detritus pool
          end if
 
          ! Jorn: from p4zmort.F90
@@ -616,20 +644,15 @@ contains
          !     dominate the community. As a consequence, aggregation
          !     due to turbulence is negligible. Mortality is also set
          !     to 0
-         if (self%calcify) then
-            zsizerat = MIN(1._rk, MAX( 0._rk, (quota - 0.2_rk) / 0.3_rk) ) * c
-         else
-            zsizerat = c
-         end if
 
          !     Squared mortality of Phyto similar to a sedimentation term during
          !     blooms (Doney et al. 1996)
-         zrespp = (self%wchl + self%wchlm * zlim1) * 1.e6_rk * xstep * xdiss * zcompa * zsizerat    ! Jorn: 3rd term in Eqs 1,9, except for wchlm contribution, zsizerat, minimum threshold in zcompa
+         zrespp = self%wchl * 1.e6_rk * xstep  * zlim1  * xdiss * zcompa * c    ! Jorn: 3rd term in Eqs 1,9, except for wchlm contribution, zsizerat, minimum threshold in zcompa
 
          !     Phytoplankton mortality. This mortality loss is slightly
          !     increased when nutrients are limiting phytoplankton growth
          !     as observed for instance in case of iron limitation.
-         ztortp = self%mprat * xstep * zcompa / ( self%xkmort + c ) * zsizerat    ! Jorn: hyperbolic part of 5th term in Eq 37, except for zsizerat, minimum threshold in zcompa
+         ztortp = self%mprat * xstep * zcompa * c / ( self%xkmort + c )    ! Jorn: hyperbolic part of 5th term in Eq 37, except for zsizerat, minimum threshold in zcompa
 
          zmortp = zrespp + ztortp
 
@@ -641,25 +664,25 @@ contains
          _ADD_SOURCE_(self%id_ch, - zmortp * zfactch)
          _ADD_SOURCE_(self%id_fe, - zmortp * zfactfe)
          if (self%diatom) then
-            _GET_(self%id_si, si)
+            !_GET_(self%id_si, si)
             zfactsi = si * z1_trb
             _ADD_SOURCE_(self%id_si, - zmortp * zfactsi)
             _ADD_SOURCE_(self%id_gsi,  zmortp * zfactsi)
          end if
 
          ! Jorn: if not self%calcify, xfracal will be 0
-         zprcaca = xfracal * zmortp
+         zprcaca = xfracal * zmortp ! for diatoms: zprcaca = 0 because xfracal = 0
          _ADD_SOURCE_(self%id_dic, - zprcaca)
          _ADD_SOURCE_(self%id_tal, - 2._rk * zprcaca)
          _ADD_SOURCE_(self%id_cal, + zprcaca)
          _SET_DIAGNOSTIC_(self%id_pcal, zprcaca * 1e3_rk)
 
-         _ADD_SOURCE_(self%id_poc, + ( 1._rk - xfraresp ) * zrespp + ( 1._rk - xfratort ) * ztortp)
-         _ADD_SOURCE_(self%id_goc, + xfraresp * zrespp + xfratort * ztortp)
-         _ADD_SOURCE_(self%id_prodpoc, + ( 1._rk - xfraresp ) * zrespp + ( 1._rk - xfratort ) * ztortp)
-         _ADD_SOURCE_(self%id_prodgoc, + xfraresp * zrespp + xfratort * ztortp)
-         _ADD_SOURCE_(self%id_sfe, + (( 1._rk - xfraresp ) * zrespp + ( 1._rk - xfratort ) * ztortp) * zfactfe)
-         _ADD_SOURCE_(self%id_bfe, + (xfraresp * zrespp + xfratort * ztortp) * zfactfe)
+         _ADD_SOURCE_(self%id_poc, + ( 1._rk - xfraresp ) * zrespp +   ztortp)
+         _ADD_SOURCE_(self%id_goc, + xfraresp * zrespp )
+         _ADD_SOURCE_(self%id_prodpoc, + ( 1._rk - xfraresp ) * zrespp +  ztortp)
+         _ADD_SOURCE_(self%id_prodgoc, + xfraresp * zrespp )
+         _ADD_SOURCE_(self%id_sfe, + (( 1._rk - xfraresp ) * zrespp +  ztortp) * zfactfe)
+         _ADD_SOURCE_(self%id_bfe, + xfraresp * zrespp  * zfactfe)
 
       _LOOP_END_
    end subroutine
