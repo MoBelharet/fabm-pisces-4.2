@@ -196,6 +196,7 @@ instances:
       doc: dom/c
       waste: pom
       pos_waste: gom/si
+      heup_01: optics/heup_01
   mes:
     long_name: mesozooplankton
     model: pisces/zooplankton
@@ -213,6 +214,7 @@ instances:
       resrat: 0.005
       part: 0.75
       xsizedia: 1
+      ferat: 15.e-6
     initialization:
       c: 3.44e-7
     coupling:
@@ -229,6 +231,7 @@ instances:
       oxy: oxy/O2       
       doc: dom/c
       waste: gom
+      heup_01: optics/heup_01
   iron_availability:
     model: pisces/iron
     coupling:
@@ -269,6 +272,7 @@ instances:
     model: pisces/dom_remineralization
     coupling:
       heup: optics/heup
+      heup_01: optics/heup_01
       zoo: zoo/c
       mes: mes/c
       nitrfac: oxy/nitrfac

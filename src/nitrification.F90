@@ -77,7 +77,7 @@ contains
          zonitr  = self%nitrif * xstep * nh4 * ( 1.- nitrfac )  &    ! Jorn: Eq 56
          &         / ( 1.+ emoy ) * ( 1. + fr_i * emoy ) 
          zdenitnh4 = self%nitrif * xstep * nh4 * nitrfac
-         zdenitnh4 = MIN(  ( no3 - rtrn ) / rdenita, zdenitnh4 ) 
+         zdenitnh4 = MAX(0._rk, MIN(  ( no3 - rtrn ) / rdenita, zdenitnh4 ) ) 
          ! Update of the tracers trends
          ! ----------------------------
          _ADD_SOURCE_(self%id_nh4, - zonitr - zdenitnh4)

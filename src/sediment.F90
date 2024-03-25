@@ -101,7 +101,7 @@ contains
          zdenit2d = 10.0**( zdenit2d )
             !
          zflx = cflux * rday   ! Jorn: flux should be mmol m-2 d-1
-         zbureff = 0.013 + 0.53 * zflx**2 / ( 7.0 + zflx )**2   ! Jorn: Eq 88
+         zbureff = 0.013 + 0.53 * zflx**2 / ( 7.0 + zflx )**2  * MIN(gdepw_n / 1000._rk, 1._rk)  ! Jorn: Eq 88
 
          _GET_BOTTOM_(self%id_siflux, zsiloss)   ! Jorn: this is the bottom flux in mmol m-2 s-1; in PISCES it is multiplied with time step and layer thickness
          _GET_BOTTOM_(self%id_calflux, zcaloss)
@@ -112,8 +112,9 @@ contains
          _GET_(self%id_zomegaca, zomegaca)
          !
          excess = 1._rk - zomegaca
-         zfactcal = MIN( excess, 0.2 )
-         zfactcal = MIN( 1., 1.3 * ( 0.2 - zfactcal ) / ( 0.4 - zfactcal ) )   ! Jorn: Eq 91
+         zfactcal = MAX(-0.1, MIN( excess, 0.2 ))
+         !zfactcal = MIN( 1., 1.3 * ( 0.2 - zfactcal ) / ( 0.4 - zfactcal ) )   ! Jorn: Eq 91
+         zfactcal = 0.3_rk + 0.7_rk * MIN( 1._rk, (0.1_rk + zfactcal) / ( 0.5_rk - zfactcal ) )
          zrivalk  = self%sedcalfrac * zfactcal
          _ADD_BOTTOM_FLUX_(self%id_tal, + zcaloss * zrivalk * 2.0)
          _ADD_BOTTOM_FLUX_(self%id_dic, + zcaloss * zrivalk)

@@ -20,7 +20,7 @@ module pisces_phytoplankton
       type (type_surface_dependency_id) :: id_zstrn, id_hmld, id_heup_01, id_etot_wm
       type (type_surface_dependency_id) :: id_gphit, id_fr_i, id_xksi_
       type (type_horizontal_dependency_id) :: id_xksi
-      type (type_diagnostic_variable_id) :: id_quota, id_xfracal, id_pcal,id_sizep
+      type (type_diagnostic_variable_id) :: id_quota, id_xfracal, id_pcal,id_sizep, id_consfe3
       type (type_diagnostic_variable_id) :: id_zlim1, id_zlim2, id_zlim3, id_zlim4, id_xlim, id_sizea
       type (type_diagnostic_variable_id) :: id_PPPHY, id_PPNEW, id_PBSi, id_PFe
       type (type_diagnostic_variable_id) :: id_zprmax, id_Mu, id_Llight
@@ -234,8 +234,10 @@ contains
       if (self%calcify) call self%register_diagnostic_variable(self%id_xfracal, 'xfracal', '1', 'calcifying fraction')
       call self%register_diagnostic_variable(self%id_pcal, 'pcal', 'mol m-3 s-1', 'calcite production')
       call self%add_to_aggregate_variable(calcite_production, self%id_pcal)
+      call self%register_diagnostic_variable(self%id_consfe3,'consfe3', 'mol Fe L-1', 'iron consumption')
+      call self%add_to_aggregate_variable(consfe3_sum, self%id_consfe3)
 
-      call self%register_diagnostic_variable(self%id_sizep, 'sizep','-','Mean relative size', initial_value=1._rk) ! Mokrane: TO DO: verify if initial_value can be applied for register_diagnostic_variable
+      call self%register_diagnostic_variable(self%id_sizep, 'sizep','-','Mean relative size') ! Mokrane: TO DO: This has to be initialized to 1
       call self%register_diagnostic_variable(self%id_sizea, 'sizea','-','Mean relative size at next time-step')
 
    end subroutine initialize
@@ -335,6 +337,7 @@ contains
          _GET_(self%id_etot_w, etot_w)            ! daily mean Photosynthetically Available Radiation (W m-2) weighted by absorption per waveband
          _GET_SURFACE_(self%id_etot_wm, etot_wm)  ! daily mean Photosynthetically Available Radiation (W m-2) weighted by absorption per waveband, averaged over mixed/euphotic layer
          _GET_SURFACE_(self%id_fr_i, fr_i)        ! sea ice area fraction (1)
+         
       
 
          IF (gdept_n > hmld) etot_wm = etot_w     ! below turbocline: the experienced daily mean PAR is the actual in-situ value (not the average over the mixing layer)
@@ -347,11 +350,13 @@ contains
 
          ! ======================================================================================
          ! Jorn: From p4zlim
+
+         sizep = 1._rk  ! Mokrane: To be modified -->  _GET_(self%id_sizep, sizep)
          
          z1_trb   = 1._rk / ( c + rtrn )         ! 1 / carbon biomass
-         concfe = self%concfer * self%sizep**0.81
-         zconcno3           = self%concno3 * self%sizep**0.81
-         zconcnh4        = self%concnh4 * self%sizep**0.81 
+         concfe = self%concfer * sizep**0.81    ! sizep is the equivalent of sizen and sized in the original version
+         zconcno3           = self%concno3 * sizep**0.81
+         zconcnh4        = self%concnh4 * sizep**0.81 
          
 
          ! Computation of the optimal allocation parameters
@@ -525,11 +530,18 @@ contains
             zysopt = 0._rk
             zpr = 0._rk
             quota = 1._rk
+            sizea = 1._rk
          ENDIF
+
+         _SET_DIAGNOSTIC_(self%id_sizea, sizea)
+
+         sizep = MAX(1._rk, sizea)
+         _SET_DIAGNOSTIC_(self%id_sizep, sizep)
+
          ! This variable must be declared as a diagnostic variable
          ! it is used in iron.F90
          ! ISSUE: it is dependeing on the sum of (zprofe * self%texcret) calculated for nano and diatoms
-         consfe3   = zprofe * self%texcret * 75._rk / ( rtrn + ( plig + 75._rk * (1._rk - plig ) ) * fer )
+        
 
          _ADD_SOURCE_(self%id_ch, zprochl * self%texcret)
 
@@ -548,6 +560,10 @@ contains
          !
          !_ADD_SOURCE_(self%id_biron, -self%texcret * zprofe)
          _ADD_SOURCE_(self%id_fer, -self%texcret * zprofe)
+
+         ! consfe3 must be declared as a diagnostic variable ! How to accumulate nanophytoplankton and diatoms
+         consfe3   = self%texcret * zprofe * 75._rk / ( rtrn + ( plig + 75._rk * (1.0 - plig ) )  * fer )
+
          if (self%diatom) then
          !   _ADD_SOURCE_(self%id_si, zprorca * zysopt * self%texcret)
          !   _ADD_SOURCE_(self%id_sil, -self%texcret * zprorca * zysopt)
@@ -597,9 +613,10 @@ contains
 
         ! Size estimation of phytoplankton based on total biomass
         ! Assumes that larger biomass implies addition of larger cells
-         zcoef = c - MIN(self%xsize, c)
-         sizea = 1. + ( self%xsizer -1.0 ) * zcoef / ( self%xsize + zcoef )        
+         !zcoef = c - MIN(self%xsize, c)
+         !sizea = 1. + ( self%xsizer -1.0 ) * zcoef / ( self%xsize + zcoef )        
          
+         !_SET_DIAGNOSTIC_(self%id_sizea, sizea)
 
          if (self%calcify) then
             ! Jorn: from p4zlim.F90, Eq 77

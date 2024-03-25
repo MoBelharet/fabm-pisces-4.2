@@ -8,10 +8,10 @@ module pisces_shared
 
    public
 
-   real(rk), parameter :: rno3    =  16._rk / 122._rk
-   real(rk), parameter :: po4r    =   1._rk / 122._rk
-   real(rk), parameter :: o2nit   =  32._rk / 122._rk
-   real(rk), parameter :: o2ut    = 133._rk / 122._rk
+   real(rk), parameter :: rno3    =  16._rk / 117._rk
+   real(rk), parameter :: po4r    =   1._rk / 117._rk
+   real(rk), parameter :: o2nit   =  32._rk / 117._rk
+   real(rk), parameter :: o2ut    = 133._rk / 117._rk
    real(rk), parameter :: rdenit  =  ( ( o2ut + o2nit ) * 0.80_rk - rno3 - rno3 * 0.60_rk ) / rno3
 
    real(rk), parameter :: rtrn    = 0.5_rk * EPSILON( 1.e0_rk )    !: truncation value
@@ -30,6 +30,8 @@ module pisces_shared
    type (type_interior_standard_variable), parameter :: calcite_saturation_state = type_interior_standard_variable(name='calcite_saturation_state', units='-')
 
    type (type_universal_standard_variable), parameter :: calcite_production = type_universal_standard_variable(name='calcite_production', units='mol m-3 s-1', aggregate_variable=.true.)
+   type (type_universal_standard_variable), parameter :: consfe3_sum =
+   type_universal_standard_variable(name='consfe3_sum', units='', aggregate_variable=.true.)
 
    ! Maximum number of iterations for each method
    INTEGER, PARAMETER :: jp_maxniter_atgen    = 20

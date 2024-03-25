@@ -16,12 +16,13 @@ module pisces_zooplankton
       type (type_state_variable_id) :: id_dia, id_dfe, id_dsi, id_dch, id_phy, id_nfe, id_nch, id_zoo, id_poc, id_sfe, id_goc, id_bfe, id_gsi
       type (type_state_variable_id) :: id_po4, id_no3, id_nh4, id_doc, id_dic, id_tal, id_poc_waste, id_pof_waste, id_pos_waste, id_cal
       type (type_state_variable_id) :: id_conspoc, id_consgoc, id_prodpoc, id_poc_waste_prod
-      type (type_dependency_id)     :: id_tem, id_nitrfac, id_quotan, id_quotad, id_xfracal, id_wspoc, id_wsgoc
-      type (type_diagnostic_variable_id) :: id_zfezoo, id_zgrazing, id_zfrac, id_pcal
+      type (type_dependency_id)     :: id_tem, id_nitrfac, id_quotan, id_quotad, id_xfracal, id_wspoc, id_wsgoc, id_gdepw_n
+      type (type_surface_dependency_id) :: id_hmld, id_heup_01
+      type (type_diagnostic_variable_id) :: id_zfezoo, id_zgrazing, id_zfrac, id_pcal, id_sized, id_sizen
 
-      real(rk) :: grazrat, logbz, resrat, xkmort, mzrat, xthresh, xkgraz, ferat, epsher, epshermin, unass, sigma, part, grazflux
+      real(rk) :: grazrat, logbz, resrat, xkmort, mzrat, xthresh, xkgraz, ferat, feratn, epsher, epshermin, unass, sigma, part, grazflux
       real(rk) :: xthreshdia, xthreshphy, xthreshzoo, xthreshpoc
-      real(rk) :: xprefn, xprefz, xprefd, xprefc, xsizedia, xdismort, phlim, xsigma, xsigmadel, iszprop
+      real(rk) :: xprefn, xprefz, xprefd, xprefc, xsizedia, xdismort, phlim, xsigma, xsigmadel
    contains
       procedure :: initialize
       procedure :: do
@@ -60,12 +61,12 @@ contains
       call self%get_parameter(self%xkmort, 'xkmort', 'mol C L-1', 'half saturation constant for mortality', default=0.2e-6_rk, minimum=0._rk)
       call self%get_parameter(self%part, 'part', '1', 'fraction of calcite that does not dissolve in guts', minimum=0._rk, maximum=1._rk)
       call self%get_parameter(self%ferat, 'ferat', 'mol Fe mol C-1', 'Fe / C ratio', default=10.e-6_rk, minimum=0._rk)
+      call self%get_parameter(self%feratn, 'feratn', 'mol Fe mol C-1', 'Fe / C ratio of microzooplankton', default=10.e-6_rk, minimum=0._rk)
       call self%get_parameter(self%xsizedia, 'xsizedia', 'mol C L-1', 'maximum accessible diatom biomass (above this threshold cells are too large)', default=1e-6_rk, minimum=0._rk)
       call self%get_parameter(self%xdismort, 'xdismort', '1', 'fraction of quadratic mortality directed to nutrient pools', default=( 1._rk - self%epsher - self%unass ) /( 1._rk - self%epsher ), minimum=0._rk, maximum=1._rk)
       call self%get_parameter(self%phlim, 'phlim', '1', 'relative grazing on nanophytoplankton if cells are small', minimum=0._rk, maximum=1._rk)
       call self%get_parameter(self%xsigma, 'xsigma', '1', 'Width of the grazing window' , default=0.5_rk , minimum=0._rk) 
       call self%get_parameter(self%xsigmadel, 'xsigmadel', '1', 'Maximum additional width of the grazing window', default=1._rk , minimum=0._rk)
-      call self%get_parameter(self%iszprop, 'iszprop', '1', 'Relative proportion of the abundance of diatoms available for grazing', default=0._rk , minimum=0._rk, maximum=1._rk)
 
       call self%register_state_variable(self%id_c, 'c', 'mol C L-1', 'carbon', minimum=0.0_rk)
       call self%add_to_aggregate_variable(standard_variables%total_carbon, self%id_c, scale_factor=1e6_rk)
@@ -119,6 +120,11 @@ contains
       call self%register_dependency(self%id_xfracal, 'xfracal', '1', 'calcifying fraction of nanophytoplankton')
       call self%register_dependency(self%id_wspoc, 'wspoc', 'm d-1', 'sinking velocity of small particulate organic matter')
       call self%register_dependency(self%id_wsgoc, 'wsgoc', 'm d-1', 'sinking velocity of large particulate organic matter')
+      call self%register_dependency(self%id_sizen,'sizen','-','Mean relative size of nanophytoplankton')
+      call self%register_dependency(self%id_sized,'sized','-','Mean relative size of diatoms')
+      call self%register_dependency(self%id_hmld, mixed_layer_thickness_defined_by_vertical_tracer_diffusivity)
+      call self%register_dependency(self%id_heup_01, 'heup_01', 'm', 'euphotic layer depth (PAR > 0.5 W m-2)')
+      call self%register_dependency(self%id_gdepw_n, standard_variables%depth)
 
       ! Allow wholesale coupling of prey, which then automatically sets up the constituent coupling
       call self%request_coupling_to_model(self%id_dia, 'dia', 'c')
@@ -126,10 +132,12 @@ contains
       call self%request_coupling_to_model(self%id_dch, 'dia', 'ch')
       call self%request_coupling_to_model(self%id_dsi, 'dia', 'si')
       call self%request_coupling_to_model(self%id_quotad, 'dia', 'quota')
+      call self%request_coupling_to_model(self%id_sized, 'dia', 'sizep')
       call self%request_coupling_to_model(self%id_phy, 'phy', 'c')
       call self%request_coupling_to_model(self%id_nfe, 'phy', 'fe')
       call self%request_coupling_to_model(self%id_nch, 'phy', 'ch')
       call self%request_coupling_to_model(self%id_quotan, 'phy', 'quota')
+      call self%request_coupling_to_model(self%id_sizen, 'phy', 'sizep')
       call self%request_coupling_to_model(self%id_xfracal, 'phy', 'xfracal')
       call self%request_coupling_to_model(self%id_poc, 'pom', 'c')
       call self%request_coupling_to_model(self%id_sfe, 'pom', 'fe')
@@ -160,7 +168,7 @@ contains
       real(rk) :: zgrazffeg, zgrazfffg, zgrazffep, zgrazfffp, zproport, zratio, zratio2, zfrac, zfracfe
       real(rk) :: zgrasrat, zgrasratn, zepshert, zbeta, zepsherf, zepsherq, zepsherv, zgrafer, zgrarem, zgrarsig, zmortz, zmortzgoc
       real(rk) :: zprcaca, zfracal, zgrazcal, cal, zsigma, zdiffdn
-      real(rk) :: zproport, ztmp1, ztmp2, ztmp3, ztmp4, ztmptot
+      real(rk) :: zproport, ztmp1, ztmp2, ztmp3, ztmp4, ztmptot, sizen, sized, gdepw, hmld, heup_01
 
       _LOOP_BEGIN_
          _GET_(self%id_c, c)
@@ -173,9 +181,9 @@ contains
          zcompa = MAX( ( c - 1.e-9_rk ), 0.e0_rk )
          zfact   = xstep * tgfunc2 * zcompa
 
-         zproport  = min(1.0, exp(-1.1 * MAX(0., self%iszprop * ( sized(ji,jj,jk) - 1.8 ))**0.8 ))
+         zproport  = min(1.0, exp(-1.1 * MAX(0., self%phlim * ( sized(ji,jj,jk) - 1.8 ))**0.8 )) ! for meso : zproport = 1 , 
 
-         !   Michaelis-Menten mortality rates of microzooplankton - Jorn: last (4th) term in Eq 24
+         !   Michaelis-Menten mortality ates of microzooplankton - Jorn: last (4th) term in Eq 24
          !   -----------------------------------------------------
          zrespz = self%resrat * zfact * ( c / ( self%xkmort + c )  &
          &        + 3._rk * nitrfac )
@@ -206,6 +214,8 @@ contains
          _GET_(self%id_quotan, quotan)
          _GET_(self%id_quotad, quotad)
          _GET_(self%id_xfracal, xfracal)
+         _GET_(self%id_sizen, sizen)
+         _GET_(self%id_sized, sized)
          zcompadi  = zproport * MAX( ( dia - self%xthreshdia ), 0.e0_rk )  ! Jorn: xsizedia = 0 for mesozoo
          zcompaph  = MAX( ( phy - self%xthreshphy ), 0.e0_rk )
          zcompapoc = MAX( ( poc - self%xthreshpoc ), 0.e0_rk )
@@ -274,9 +284,12 @@ contains
          zgraztotc = zgrazd + zgrazp + zgrazz + zgrazpoc + zgrazffep + zgrazffeg   ! Jorn: this seems to be potential ingestion, since zgrazffep and zgrazffeg will later be scaled with proportion of filter feeders, zproport
          ! Compute the proportion of filter feeders
          ! Mokrane: get gdepw , hmld and heup_01 from optics (coupling) ??? Ask Jorn
+         _GET_SURFACE_(self%id_hmld, hmld)
+         _GET_SURFACE_(self%id_heup_01, heup_01)
+         _GET_(self%id_gdepw_n, gdepw)
          zproport  = 0._wp
          IF( gdepw > MAX(hmld , heup_01 ) ) THEN
-              zproport  = (zgrazffep + zgrazffeg)/(rtrn + zgraztotc)
+              zproport  = (zgrazffep + zgrazffeg)/(rtrn + zgraztotc) ! for microzoo: zproport = 0 because zgrazffep=0 and zgrazffeg=0
          ENDIF
 
 
@@ -294,16 +307,15 @@ contains
 
          ! Jorn: scale potential ingestion due to flux feeding with the proprotion of predators that is filter-feeding
 
-         zproport = MAX(zproport , self%isprop) ! Mokrane: this will give zproport = zproport for mesozoo and zproport = 1 for microzoo
 
-         zgrazffep = zproport * zgrazffep
-         zgrazffeg = zproport * zgrazffeg
-         zgrazfffp = zproport * zgrazfffp
-         zgrazfffg = zproport * zgrazfffg
+         zgrazffep = zproport * zgrazffep ! for micro: zgrazffep=0
+         zgrazffeg = zproport * zgrazffeg ! for micro: zgrazffeg =0
+         zgrazfffp = zproport * zgrazfffp ! for micro: zgrazfffp =0
+         zgrazfffg = zproport * zgrazfffg ! for micro: zgrazfffg =0
 
-         zproport = MIN(zproport , 1._rk - self%isprop) ! Mokrane: this will give zproport = zproport for mesozoo and zproport = 0 for microzoo
+         ! Mokrane: zproport = zproport for mesozoo and zproport = 0 for microzoo
 
-         zgrazd    = (1.0 - zproport) * zgrazd
+         zgrazd    = (1.0 - zproport) * zgrazd ! for micro: zgrazd = zgrazd because zproport = 0
          zgrazp    = (1.0 - zproport) * zgrazp
          zgrazz    = (1.0 - zproport) * zgrazz
          zgrazpoc  = (1.0 - zproport) * zgrazpoc
@@ -312,7 +324,7 @@ contains
          zgrazpof  = (1.0 - zproport) * zgrazpof
 
          zgraztotc = zgrazp  + zgrazd  + zgrazpoc + zgrazz              + zgrazffep + zgrazffeg    ! Jorn: total ingestion of carbon
-         zgraztotf = zgrazpf + zgrazsf + zgrazpof + zgrazz * self%ferat + zgrazfffp + zgrazfffg    ! Jorn: total ingestion of iron, note use of ferat assumes microzoo prey and its predator have same Fe : C
+         zgraztotf = zgrazpf + zgrazsf + zgrazpof + zgrazz * self%feratn + zgrazfffp + zgrazfffg    ! Jorn: total ingestion of iron, note use of ferat assumes microzoo prey and its predator have same Fe : C
          zgraztotn = zgrazp * quotan + zgrazd * quotad + zgrazpoc + zgrazz + zgrazffep + zgrazffeg ! Jorn: total ingestion of nitrogen, already expressed in carbon units (i.e. relative to rno3)
 
          ! Grazing by microzooplankton
