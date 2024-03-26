@@ -15,7 +15,7 @@ module pisces_phytoplankton
       type (type_state_variable_id)     :: id_c, id_ch, id_fe, id_si, id_fer
       type (type_state_variable_id)     :: id_no3, id_nh4, id_po4, id_sil, id_biron, id_doc, id_dic, id_tal, id_oxy
       type (type_state_variable_id)     :: id_poc, id_sfe, id_goc, id_gsi, id_bfe, id_cal, id_prodpoc, id_prodgoc
-      type (type_dependency_id)         :: id_tem, id_gdept_n, id_xdiss, id_plig
+      type (type_dependency_id)         :: id_tem, id_gdept_n, id_xdiss, id_plig, id_sizep_prev
       type (type_dependency_id)         :: id_pe1, id_pe2, id_pe3, id_etot_ndcy, id_etot_w
       type (type_surface_dependency_id) :: id_zstrn, id_hmld, id_heup_01, id_etot_wm
       type (type_surface_dependency_id) :: id_gphit, id_fr_i, id_xksi_
@@ -236,8 +236,9 @@ contains
       call self%add_to_aggregate_variable(calcite_production, self%id_pcal)
       call self%register_diagnostic_variable(self%id_consfe3,'consfe3', 'mol Fe L-1', 'iron consumption')
       call self%add_to_aggregate_variable(consfe3_sum, self%id_consfe3)
-
-      call self%register_diagnostic_variable(self%id_sizep, 'sizep','-','Mean relative size') ! Mokrane: TO DO: This has to be initialized to 1
+     
+      call self%register_diagnostic_variable(self%id_sizep, 'sizep','-','Mean relative size', missing_value=1._rk) 
+      call self%register_dependency(self%id_sizep_prev, 'sizep','-','Mean relative size')  ! To initialize sizep to 1
       call self%register_diagnostic_variable(self%id_sizea, 'sizea','-','Mean relative size at next time-step')
 
    end subroutine initialize
@@ -351,7 +352,7 @@ contains
          ! ======================================================================================
          ! Jorn: From p4zlim
 
-         sizep = 1._rk  ! Mokrane: To be modified -->  _GET_(self%id_sizep, sizep)
+         _GET_(self%id_sizep_prev, sizep)
          
          z1_trb   = 1._rk / ( c + rtrn )         ! 1 / carbon biomass
          concfe = self%concfer * sizep**0.81    ! sizep is the equivalent of sizen and sized in the original version
