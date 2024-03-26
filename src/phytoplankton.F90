@@ -228,7 +228,7 @@ contains
       call self%register_diagnostic_variable(self%id_PPNEW, 'PPNEW', 'mol C m-3 s-1', 'new primary production')
       if (self%diatom) call self%register_diagnostic_variable(self%id_PBSi, 'PBSi', 'mol Si m-3 s-1', 'biogenic silica production')
       call self%register_diagnostic_variable(self%id_PFe, 'PFe', 'mol Fe m-3 s-1', 'biogenic iron production')
-      call self%registerdiagnostic_variable(self%id_zprmax, 'mumax', 's-1', 'maximum growth rate after temperature correction')
+      call self%register_diagnostic_variable(self%id_zprmax, 'mumax', 's-1', 'maximum growth rate after temperature correction')
       call self%register_diagnostic_variable(self%id_Mu, 'Mu', 's-1', 'realized growth rate')
       call self%register_diagnostic_variable(self%id_Llight, 'Llight', '1', 'light limitation term')
       if (self%calcify) call self%register_diagnostic_variable(self%id_xfracal, 'xfracal', '1', 'calcifying fraction')
@@ -310,7 +310,7 @@ contains
       real(rk) :: ztem1, ztem2, zetot1, zetot2, xfracal
       real(rk) :: xfraresp, xfratort, zcompa, zsizerat, zrespp, ztortp, zmortp, zfactfe, zfactch, zfactsi, zprcaca, xdiss
       real(rk) :: zbiron, plig, znutlim, faf, zfalim, sizea, zcoef
-      real(rk) :: zratiosi, zmaxsi
+      real(rk) :: zratiosi, zmaxsi, consfe3, zfecm, zlimfac, zsizetmp
 
       _LOOP_BEGIN_
          _GET_(self%id_c, c)                      ! carbon (mol/L)
@@ -507,9 +507,9 @@ contains
             zfecm = xqfuncfec + ( self%fecm - xqfuncfec ) * ( xno3 + xnh4 )
 
 
-            zratio = 1._rk - MIN(1._rk, fe / ( c * zfecnm + rtrn ) ) !fe / ( c * self%fecm + rtrn )   ! Jorn: internal iron pool relative to maximum value (dimensionless)
+            zratio = 1._rk - MIN(1._rk, fe / ( c * zfecm + rtrn ) ) !fe / ( c * self%fecm + rtrn )   ! Jorn: internal iron pool relative to maximum value (dimensionless)
             zmax   = MAX( 0., MIN( 1._rk, zratio**2/ (0.05_rk**2+zratio**2) ) ) !MAX( 0., ( 1._rk - zratio ) / ABS( 1.05_rk - zratio ) )            ! ratio in Eq 17 (dimensionless)
-            zprofe = zfecm * zprmax(ji,jj,jk) * (1.0 - fr_i )  & !self%fecm * zprmax * ( 1.0 - fr_i )  &                             ! Increase in internal iron pool in mol Fe/L/s
+            zprofe = zfecm * zprmax * (1.0 - fr_i )  & !self%fecm * zprmax * ( 1.0 - fr_i )  &                             ! Increase in internal iron pool in mol Fe/L/s
             &             * (1. + 0.8 * xno3 / ( rtrn + xno3  & !* ( 4._rk - 4.5_rk * xlimfe / ( xlimfe + 0.5_rk ) )    &      ! Eq 19, note xlimfe is based on internal iron quota (not ambient concentration)
             &             + xnh4 ) * (1. - xfer ) )   & !* biron / ( biron + concfe )  &                               ! Eq 18a
             &             * xfer * zmax * c !* zmax * c                                                    ! Jorn: dropped multiplication with rfact2 [time step in seconds]

@@ -16,9 +16,9 @@ module pisces_zooplankton
       type (type_state_variable_id) :: id_dia, id_dfe, id_dsi, id_dch, id_phy, id_nfe, id_nch, id_zoo, id_poc, id_sfe, id_goc, id_bfe, id_gsi
       type (type_state_variable_id) :: id_po4, id_no3, id_nh4, id_doc, id_dic, id_tal, id_poc_waste, id_pof_waste, id_pos_waste, id_cal
       type (type_state_variable_id) :: id_conspoc, id_consgoc, id_prodpoc, id_poc_waste_prod
-      type (type_dependency_id)     :: id_tem, id_nitrfac, id_quotan, id_quotad, id_xfracal, id_wspoc, id_wsgoc, id_gdepw_n
+      type (type_dependency_id)     :: id_tem, id_nitrfac, id_quotan, id_quotad, id_xfracal, id_wspoc, id_wsgoc, id_gdepw_n ,id_sized, id_sizen
       type (type_surface_dependency_id) :: id_hmld, id_heup_01
-      type (type_diagnostic_variable_id) :: id_zfezoo, id_zgrazing, id_zfrac, id_pcal, id_sized, id_sizen
+      type (type_diagnostic_variable_id) :: id_zfezoo, id_zgrazing, id_zfrac, id_pcal
 
       real(rk) :: grazrat, logbz, resrat, xkmort, mzrat, xthresh, xkgraz, ferat, feratn, epsher, epshermin, unass, sigma, part, grazflux
       real(rk) :: xthreshdia, xthreshphy, xthreshzoo, xthreshpoc
@@ -168,12 +168,14 @@ contains
       real(rk) :: zgrazffeg, zgrazfffg, zgrazffep, zgrazfffp, zproport, zratio, zratio2, zfrac, zfracfe
       real(rk) :: zgrasrat, zgrasratn, zepshert, zbeta, zepsherf, zepsherq, zepsherv, zgrafer, zgrarem, zgrarsig, zmortz, zmortzgoc
       real(rk) :: zprcaca, zfracal, zgrazcal, cal, zsigma, zdiffdn
-      real(rk) :: zproport, ztmp1, ztmp2, ztmp3, ztmp4, ztmptot, sizen, sized, gdepw, hmld, heup_01
+      real(rk) :: ztmp1, ztmp2, ztmp3, ztmp4, ztmptot, sizen, sized, gdepw_n, hmld, heup_01
 
       _LOOP_BEGIN_
          _GET_(self%id_c, c)
          _GET_(self%id_tem, tem)
          _GET_(self%id_nitrfac, nitrfac)
+         _GET_(self%id_sizen, sizen)
+         _GET_(self%id_sized, sized)
 
 !         tgfunc2 = EXP( 0.07608_rk  * tem )        ! Jorn: from p4zint.F90, equivalent to Eq 25b as NB EXP(0.07608) = 1.079 = b_Z
          tgfunc2 = EXP( self%logbz  * tem )         ! AC: set log(bz) as parameter.
@@ -181,7 +183,7 @@ contains
          zcompa = MAX( ( c - 1.e-9_rk ), 0.e0_rk )
          zfact   = xstep * tgfunc2 * zcompa
 
-         zproport  = min(1.0, exp(-1.1 * MAX(0., self%phlim * ( sized(ji,jj,jk) - 1.8 ))**0.8 )) ! for meso : zproport = 1 , 
+         zproport  = min(1._rk, exp(-1.1_rk * MAX(0._rk, self%phlim * ( sized - 1.8_rk ))**0.8 )) ! for meso : zproport = 1 , 
 
          !   Michaelis-Menten mortality ates of microzooplankton - Jorn: last (4th) term in Eq 24
          !   -----------------------------------------------------
@@ -214,8 +216,7 @@ contains
          _GET_(self%id_quotan, quotan)
          _GET_(self%id_quotad, quotad)
          _GET_(self%id_xfracal, xfracal)
-         _GET_(self%id_sizen, sizen)
-         _GET_(self%id_sized, sized)
+       
          zcompadi  = zproport * MAX( ( dia - self%xthreshdia ), 0.e0_rk )  ! Jorn: xsizedia = 0 for mesozoo
          zcompaph  = MAX( ( phy - self%xthreshphy ), 0.e0_rk )
          zcompapoc = MAX( ( poc - self%xthreshpoc ), 0.e0_rk )
@@ -286,9 +287,9 @@ contains
          ! Mokrane: get gdepw , hmld and heup_01 from optics (coupling) ??? Ask Jorn
          _GET_SURFACE_(self%id_hmld, hmld)
          _GET_SURFACE_(self%id_heup_01, heup_01)
-         _GET_(self%id_gdepw_n, gdepw)
-         zproport  = 0._wp
-         IF( gdepw > MAX(hmld , heup_01 ) ) THEN
+         _GET_(self%id_gdepw_n, gdepw_n)
+         zproport  = 0._rk
+         IF( gdepw_n > MAX(hmld , heup_01 ) ) THEN
               zproport  = (zgrazffep + zgrazffeg)/(rtrn + zgraztotc) ! for microzoo: zproport = 0 because zgrazffep=0 and zgrazffeg=0
          ENDIF
 
@@ -357,7 +358,7 @@ contains
          _ADD_SOURCE_(self%id_nch, - zgrazp  * nch / (phy + rtrn))
          _ADD_SOURCE_(self%id_dch, - zgrazd * dch / (dia + rtrn))
          _ADD_SOURCE_(self%id_dsi, - zgrazd * dsi / (dia + rtrn))
-         zgrabsi       = zgrazd * dsi / ( dia + rtrn ) ! zgrabsi to be declared
+          !zgrabsi       = zgrazd * dsi / ( dia + rtrn ) ! zgrabsi to be declared
          _ADD_SOURCE_(self%id_nfe, - zgrazpf)
          _ADD_SOURCE_(self%id_dfe, - zgrazsf)
          _ADD_SOURCE_(self%id_poc, - zgrazpoc - zgrazffep + zfrac)

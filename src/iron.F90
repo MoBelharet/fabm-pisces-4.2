@@ -11,7 +11,8 @@ module pisces_iron
 
    type, extends(type_particle_model), public :: type_pisces_iron
       type (type_state_variable_id) :: id_fer, id_sfe, id_bfe
-      type (type_dependency_id) :: id_tempis, id_salinprac, id_xdiss, id_doc, id_poc, id_goc, id_cal, id_gsi, id_hi, id_oxy, id_etot, id_gdept_n, id_zdust, id_etot_ndcy,id_chemo2, id_consfe3,id_nitrfac, id_no3
+      type (type_dependency_id) :: id_tempis, id_salinprac, id_xdiss, id_doc, id_poc, id_goc, id_cal, id_gsi, id_hi, id_oxy, id_etot, id_gdept_n
+      type (type_dependency_id) :: id_zdust, id_etot_ndcy,id_chemo2, id_consfe3,id_nitrfac, id_no3, id_consfe3_sum
       type (type_surface_dependency_id) :: id_gphit, id_fr_i
       type (type_diagnostic_variable_id) :: id_scav, id_coll, id_Fe3, id_FeL1, id_zTL1,id_xfecolagg, id_plig, id_zfeprecip, id_xcoagfe
       real(rk) :: ligand, xlam1, xlamdust, kfep, wdust, light, scaveff
@@ -92,7 +93,7 @@ contains
       real(rk) :: ztotlig, zTL1, zkeq, zfesatur, ztfe, zFe3, zFeL1, zdust, zhplus, fe3sol, zfeequi, zfecoll, precip, ztrc, precipno3, zfeprecip
       real(rk) :: zxlam, zlam1a, zlam1b, zscave, zdenom1, zdenom2, zlamfac, zdep, zcoag, zaggdfea, zaggdfeb
       real(rk) :: etot_ndcy, fr_i, zlight, zsoufer
-      real(rk) :: chemo2, xfecolagg, zklight, consfe3, za1, plig, nitrfac, xcoagfe
+      real(rk) :: chemo2, xfecolagg, zklight, consfe3, za1, plig, nitrfac, xcoagfe, zconsfe
 
       _LOOP_BEGIN_
          _GET_(self%id_fer, fer)

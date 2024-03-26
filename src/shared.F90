@@ -30,8 +30,7 @@ module pisces_shared
    type (type_interior_standard_variable), parameter :: calcite_saturation_state = type_interior_standard_variable(name='calcite_saturation_state', units='-')
 
    type (type_universal_standard_variable), parameter :: calcite_production = type_universal_standard_variable(name='calcite_production', units='mol m-3 s-1', aggregate_variable=.true.)
-   type (type_universal_standard_variable), parameter :: consfe3_sum =
-   type_universal_standard_variable(name='consfe3_sum', units='', aggregate_variable=.true.)
+   type (type_universal_standard_variable), parameter :: consfe3_sum = type_universal_standard_variable(name='consfe3_sum', units='-', aggregate_variable=.true.)
 
    ! Maximum number of iterations for each method
    INTEGER, PARAMETER :: jp_maxniter_atgen    = 20
