@@ -58,7 +58,7 @@ contains
       call self%get_parameter(self%xthreshpoc, 'xthreshpoc', 'mol C L-1', 'food threshold for particulate organic carbon', default=1e-8_rk, minimum=0._rk)
       call self%get_parameter(self%mzrat, 'mzrat', '(umol C L-1)-1 d-1', 'quadratic mortality', minimum=0._rk)
       call self%get_parameter(self%resrat, 'resrat', 'd-1', 'linear mortality', minimum=0._rk)
-      call self%get_parameter(self%xkmort, 'xkmort', 'mol C L-1', 'half saturation constant for mortality', default=0.2e-6_rk, minimum=0._rk)
+      call self%get_parameter(self%xkmort, 'xkmort', 'mol C L-1', 'half saturation constant for mortality', default=0.1e-6_rk, minimum=0._rk) ! UPDATED
       call self%get_parameter(self%part, 'part', '1', 'fraction of calcite that does not dissolve in guts', minimum=0._rk, maximum=1._rk)
       call self%get_parameter(self%ferat, 'ferat', 'mol Fe mol C-1', 'Fe / C ratio', default=10.e-6_rk, minimum=0._rk)
       call self%get_parameter(self%feratn, 'feratn', 'mol Fe mol C-1', 'Fe / C ratio of microzooplankton', default=10.e-6_rk, minimum=0._rk)

@@ -49,8 +49,8 @@ contains
       call self%get_parameter(self%concfe, 'concfe', 'mol Fe L-1', 'iron half-saturation constant', default=1.E-11_rk)
 
       call self%get_parameter(self%mumax0, 'mumax0', 'd-1', 'maximum iron uptake rate of bacteria at 0 degrees Celsius', default=0.6_rk)
-      call self%get_parameter(self%feratb, 'feratb', 'mol Fe (mol C)-1', 'Fe/C quota in bacteria', default=10.E-6_rk)
-      call self%get_parameter(self%xkferb, 'xkferb', 'mol Fe L-1', 'half-saturation constant for bacteria Fe/C', default=3.E-10_rk)
+      call self%get_parameter(self%feratb, 'feratb', 'mol Fe (mol C)-1', 'Fe/C quota in bacteria', default=60.E-6_rk)
+      call self%get_parameter(self%xkferb, 'xkferb', 'mol Fe L-1', 'half-saturation constant for bacteria Fe/C', default=4.E-10_rk)
 
       call self%register_state_dependency(self%id_no3, 'no3', 'mol C L-1', 'nitrate')
       call self%register_state_dependency(self%id_nh4, 'nh4', 'mol C L-1', 'ammonium')

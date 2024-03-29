@@ -29,12 +29,12 @@ contains
 
       call self%register_implemented_routines((/source_do/))
 
-      call self%get_parameter(self%nitrfix, 'nitrfix', 'mol C L-1 d-1', 'maximum nitrogen fixation rate', default=1.e-7_rk)
-      call self%get_parameter(self%diazolight, 'diazolight', 'W m-2', 'diazotroph photosynthetic parameter', default=50._rk)
+      call self%get_parameter(self%nitrfix, 'nitrfix', 'mol C L-1 d-1', 'maximum nitrogen fixation rate', default=2.e-7_rk)
+      call self%get_parameter(self%diazolight, 'diazolight', 'W m-2', 'diazotroph photosynthetic parameter', default=30._rk)
       call self%get_parameter(self%concfediaz, 'concfediaz', 'mol Fe L-1', 'diazotroph half-saturation constant for iron', default=1.e-10_rk)
-      call self%get_parameter(self%concnnh4, 'concnnh4', 'mol C L-1', 'ammonium half-saturation constant for phytoplankton', default=1.E-7_rk)
+      call self%get_parameter(self%concnnh4, 'concnnh4', 'mol C L-1', 'ammonium half-saturation constant for phytoplankton', default=1.E-6_rk)
       call self%get_parameter(self%concnno3, 'concnno3', 'mol C L-1', 'nitrate half-saturation constant for phytoplankton', default=1.e-6_rk)
-      call self%get_parameter(self%concdnh4, 'concdnh4', 'mol C L-1', 'ammonium half-saturation constant for diatoms', default=3.E-7_rk)
+      call self%get_parameter(self%concdnh4, 'concdnh4', 'mol C L-1', 'ammonium half-saturation constant for diatoms', default=3.E-6_rk)
 
       call self%register_diagnostic_variable(self%id_Nfix, 'Nfix', 'mol N m-3 s-1', 'nitrogen fixation')
 

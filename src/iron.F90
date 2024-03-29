@@ -33,7 +33,7 @@ contains
       call self%register_implemented_routines((/source_do/))
 
       call self%get_parameter(self%ligand, 'ligand', 'mol L-1', 'total concentration of iron ligands', default=0.7E-9_rk)
-      call self%get_parameter(self%xlam1, 'xlam1', 'd-1 umol-1 L', 'scavenging rate', default=0.005_rk)
+      call self%get_parameter(self%xlam1, 'xlam1', 'd-1 umol-1 L', 'scavenging rate', default=0.02_rk)
       call self%get_parameter(self%xlamdust, 'xlamdust', 'd-1 mg-1 L', 'scavenging rate of dust', default=150.0_rk)
       call self%get_parameter(self%kfep, 'kfep', 'd-1', 'nanoparticle formation rate constant', default=0.01_rk)
       call self%get_parameter(self%light, 'light', 'W m-2', 'light limitation parameter for photolysis', default=50._rk)
@@ -171,6 +171,8 @@ contains
          _SET_DIAGNOSTIC_(self%id_zTL1, zTL1)
 
          plig =  MAX( 0., ( zFeL1 / ( fer + rtrn ) ) )
+
+         _SET_DIAGNOSTIC_(self%id_plig, plig)
 
          IF (ln_ligand) THEN
            zfecoll = 0.5 * zFeL1 * MAX(0., ztotlig - xfecolagg) / ( ztotlig + rtrn ) 

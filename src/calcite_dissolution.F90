@@ -28,8 +28,8 @@ contains
 
       call self%register_implemented_routines((/source_do/))
 
-      call self%get_parameter(self%kdca, 'kdca', 'month-1', 'dissolution rate constant', default=6._rk)   ! 0.197 d-1 in paper
-      call self%get_parameter(self%nca, 'nca', '-', 'exponent in the dissolution rate', default=1._rk)
+      call self%get_parameter(self%kdca, 'kdca', 'month-1', 'dissolution rate constant', default=100._rk)   ! 0.197 d-1 in paper
+      call self%get_parameter(self%nca, 'nca', '-', 'exponent in the dissolution rate', default=4.7_rk)
 
       call self%register_diagnostic_variable(self%id_dcal, 'DCAL', 'mol C m-3 s-1', 'rate')
 

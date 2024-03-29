@@ -50,7 +50,7 @@ module pisces_phytoplankton
       real(rk) :: xsize
       real(rk) :: texcret
       real(rk) :: caco3r
-      real(rk) :: xmort, wchl, wchlm, mprat, xkmort
+      real(rk) :: xmort, wchl, mprat, xkmort
    contains
       procedure :: initialize
       procedure :: do
@@ -114,25 +114,25 @@ contains
          call self%add_child(silicate_half_saturation, 'silicate_half_saturation')
          call self%get_parameter(silicate_half_saturation%concsil, 'concsil', 'mol Si L-1', 'minimum half-saturation constant for silicate uptake', default=1e-6_rk)
          call self%get_parameter(silicate_half_saturation%xksilim, 'xksilim', 'mol Si L-1', 'parameter for the half-saturation constant for silicate uptake', default=16.5e-6_rk)  ! default=16.6 in paper
-         call self%get_parameter(self%xksi1, 'xksi1', 'mol Si L-1', 'parameter 1 for Si / C', default=2.e-6_rk)
+         call self%get_parameter(self%xksi1, 'xksi1', 'mol Si L-1', 'parameter 1 for Si / C', default=8.e-6_rk)
          call self%get_parameter(self%xksi2, 'xksi2', 'mol Si L-1', 'parameter 2 for Si / C', default=20.e-6_rk)
       end if
       call self%get_parameter(self%concfer, 'concfer', 'mol Fe L-1', 'minimum half-saturation constant for iron uptake')
       call self%get_parameter(self%xsizer, 'xsizer', '-', 'size ratio', default=3._rk)
       if (self%diatom) call self%get_parameter(self%grosip, 'grosip', 'mol Si/mol C', 'optimal Si / C uptake ratio', default=0.159_rk)
-      call self%get_parameter(self%qfelim, 'qfelim', 'mol Fe (mol C)-1', 'optimal iron quota', default=7.e-6_rk)
+      call self%get_parameter(self%qfelim, 'qfelim', 'mol Fe (mol C)-1', 'optimal iron quota', default=10.e-6_rk)
       call self%get_parameter(self%fecm, 'fecm', 'mol Fe (mol C)-1', 'maximum iron quota', default=40.e-6_rk)
       call self%get_parameter(self%chlcm, 'chlcm', 'g Chl (g C)-1', 'maximum Chl / C ratio')
       call self%get_parameter(self%chlcmin, 'chlcmin', 'g Chl (g C)-1', 'minimum Chl / C ratio', default=0.0033_rk)  ! 0.004 in namelist_pisces_ref
       call self%get_parameter(self%xsize, 'xsize', 'mol C L-1', 'threshold concentration for size dependency (biomass above this threshold consists of large cells)', default=1.e-6_rk)
       call self%get_parameter(self%xmort, 'xmort', 'mol C L-1', 'threshold concentration for mortality')
       call self%get_parameter(self%wchl, 'wchl', 'd-1 (umol C L-1)-1', 'quadratic mortality', default=0.01_rk)
-      call self%get_parameter(self%wchlm, 'wchlm', 'd-1 (umol C L-1)-1', 'maximum additional quadratic mortality due to nutrient limitation', default=0._rk)
+      !call self%get_parameter(self%wchlm, 'wchlm', 'd-1 (umol C L-1)-1', 'maximum additional quadratic mortality due to nutrient limitation', default=0._rk)
       call self%get_parameter(self%mprat, 'mprat', 'd-1', 'mortality', default=0.01_rk)
       call self%get_parameter(self%xkmort, 'xkmort', 'mol C L-1', 'half saturation constant for mortality', default=2.e-7_rk)
       !!!call self%get_parameter(self%lthet, 'lthet', '-', 'proportional loss of ligands due to Fe uptake', default=1.0_rk)
       self%texcret = 1._rk - self%excret
-      if (self%calcify) call self%get_parameter(self%caco3r, 'caco3r', '1', 'mean rain ratio', default=0.3_rk)
+      if (self%calcify) call self%get_parameter(self%caco3r, 'caco3r', '1', 'mean rain ratio', default=0.2_rk)
 
       ! Set up submodel for computing available light
       call self%add_child(par_model, 'par')

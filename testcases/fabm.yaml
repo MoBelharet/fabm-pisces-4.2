@@ -86,9 +86,9 @@ instances:
       beta1: 1.85
       beta2: 0.69
       beta3: 0.46
-      concnh4: 1.e-7
+      concnh4: 1.e-6
       concno3: 1.e-6
-      concfer: 1.e-9
+      concfer: 1.7e-9
       chlcm: 0.033
       xmort: 1.e-9
     coupling:
@@ -120,12 +120,13 @@ instances:
       beta1: 1.62
       beta2: 0.74
       beta3: 0.63
-      concnh4: 3.e-7
+      concnh4: 3.e-6
       concno3: 3.e-6
-      concfer: 3.e-9
+      concfer: 5.e-9
       chlcm: 0.05
       xmort: 1e-9
-      wchlm: 0.03
+      wchl: 0.03
+      xsizer: 4.0
     coupling:
       no3: no3/c
       nh4: nh4/c
@@ -166,19 +167,19 @@ instances:
     long_name: microzooplankton
     model: pisces/zooplankton
     parameters:
-      epsher: 0.3
-      epshermin: 0.3
+      epsher: 0.4
+      epshermin: 0.4
       xprefn: 1.
-      xprefd: 0.5
-      xprefc: 0.1
+      xprefd: 0.8
+      xprefc: 0.15
       xprefz: 0
       xdismort: 0
-      grazrat: 3
+      grazrat: 2.
       grazflux: 0
       phlim: 1
-      mzrat: 0.004
-      resrat: 0.03
-      part: 0.5
+      mzrat: 0.005
+      resrat: 0.02
+      part: 0.75
     initialization:
       c: 6.07e-7
     coupling:
@@ -201,16 +202,16 @@ instances:
     long_name: mesozooplankton
     model: pisces/zooplankton
     parameters:
-      epsher: 0.35
-      epshermin: 0.35
+      epsher: 0.4
+      epshermin: 0.4
       xprefn: 0.3
       xprefd: 1.
       xprefc: 0.3
       xprefz: 1
-      grazrat: 0.75
+      grazrat: 0.5
       grazflux: 3e3
       phlim: 0
-      mzrat: 0.03
+      mzrat: 0.01
       resrat: 0.005
       part: 0.75
       xsizedia: 1
