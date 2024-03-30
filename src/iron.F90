@@ -80,7 +80,7 @@ contains
       call self%register_dependency(self%id_etot_ndcy, 'etot_ndcy', 'W m-2', 'daily mean PAR')
       call self%register_dependency(self%id_fr_i, standard_variables%ice_area_fraction)
       call self%register_dependency(self%id_chemo2, 'chemo2', 'mol O2 (L atm)-1', 'solubility')
-      call self%register_dependency(self%id_consfe3_sum, consfe3_sum)
+      !call self%register_dependency(self%id_consfe3_sum, consfe3_sum)
 
    end subroutine
 
@@ -113,7 +113,7 @@ contains
          _GET_(self%id_gdept_n, gdept_n)
          _GET_(self%id_zdust, zdust)
          _GET_(self%id_chemo2, chemo2)
-         _GET_(self%id_consfe3_sum, consfe3)
+         !_GET_(self%id_consfe3_sum, consfe3)
          _GET_(self%id_nitrfac, nitrfac)
 
          ztkel = tempis + 273.15_rk
@@ -152,6 +152,7 @@ contains
          ! This model is based on one ligand and Fe' 
          ! Chemistry is supposed to be fast enough to be at equilibrium
          ! ------------------------------------------------------------
+         consfe3 = 0._rk
          zTL1  = ztotlig
          zkeq            = fekeq
          zklight         = 4.77E-7 * etot * 0.5 / ( 10**(-6.3) )

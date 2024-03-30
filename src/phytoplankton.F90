@@ -23,7 +23,7 @@ module pisces_phytoplankton
       type (type_diagnostic_variable_id) :: id_quota, id_xfracal, id_pcal,id_sizep, id_consfe3
       type (type_diagnostic_variable_id) :: id_zlim1, id_zlim2, id_zlim3, id_zlim4, id_xlim, id_sizea
       type (type_diagnostic_variable_id) :: id_PPPHY, id_PPNEW, id_PBSi, id_PFe
-      type (type_diagnostic_variable_id) :: id_zprmax, id_Mu, id_Llight
+      type (type_diagnostic_variable_id) :: id_zprmax, id_Mu, id_Llight, id_zval_diag, id_zpislopead_diag
 
       logical :: diatom
       logical :: calcify
@@ -31,8 +31,7 @@ module pisces_phytoplankton
       real(rk) :: logbp
       real(rk) :: fpday
       real(rk) :: bresp
-      real(rk) :: pislope_s
-      real(rk) :: pislope_l
+      real(rk) :: pislope
       real(rk) :: xadap
       real(rk) :: excret
       !real(rk) :: concpo4
@@ -99,8 +98,7 @@ contains
       call self%get_parameter(self%logbp, 'logbp', '-', 'Temperature sensitivity of growth (log rate, overwrites bp if given explicitely)', default= log(bp))
       call self%get_parameter(self%fpday, 'fpday', '-', 'day-length factor for growth', default=1.5_rk) ! AC -07.12.2021 - Aumont et al. 2015, Eq 3a
       call self%get_parameter(self%bresp, 'bresp', 'd-1', 'basal respiration', default=0.033_rk)
-      call self%get_parameter(self%pislope_s, 'pislope_s', 'g C (g Chl)-1 (W m-2)-1 d-1', 'P-I slope for small cells', default=2._rk)
-      call self%get_parameter(self%pislope_l, 'pislope_l', 'g C (g Chl)-1 (W m-2)-1 d-1', 'P-I slope for large cells', default=self%pislope_s) ! AC -07.12.2021 - changed default value to pislope_s to ensure common perturbation.
+      call self%get_parameter(self%pislope, 'pislope', 'g C (g Chl)-1 (W m-2)-1 d-1', 'P-I slope', default=2._rk)
       call self%get_parameter(self%xadap, 'xadap', '-', 'acclimation factor to low light', default=0._rk)
       call self%get_parameter(self%excret, 'excret', '1', 'fraction of production that is excreted', default=0.05_rk)
       call self%get_parameter(par_model%beta1, 'beta1', '1', 'absorption in blue part of the light')
@@ -241,6 +239,9 @@ contains
       call self%register_dependency(self%id_sizep_prev, 'sizep','-','Mean relative size')  ! To initialize sizep to 1
       call self%register_diagnostic_variable(self%id_sizea, 'sizea','-','Mean relative size at next time-step')
 
+      call self%register_diagnostic_variable(self%id_zval_diag, 'zval_diag','-','diagnostic of zval')
+      call self%register_diagnostic_variable(self%id_zpislopead_diag, 'zpislopead_diag','-','diagnostic_zpislopead')
+
    end subroutine initialize
 
    subroutine par_initialize(self, configunit)
@@ -304,7 +305,7 @@ contains
       real(rk) :: xksi, zlim3
       real(rk) :: zratio, zironmin, zlim4, xlimfe, xqfuncfec, znutlimtot, zlimno3, zlimnh4
       real(rk) :: zprmax, zval, zmxl_chl, zmxl_fac, zpr
-      real(rk) :: ztn, zadap, pislope, zpislopead, zpislope, zprch
+      real(rk) :: ztn, zadap, zpislopead, zpislope, zprch
       real(rk) :: zlim, zsilim, zsilfac, zsiborn, zsilfac2, zysopt
       real(rk) :: zprorca, zpronew, zproreg, zdocprod, zmax, zprofe
       real(rk) :: ztot, zprod, zprochl, chlcm_n, quota
@@ -430,6 +431,8 @@ contains
             !zmxl_fac = 1.5_rk * zval / ( 12._rk + zval )  ! Jorn: Eq 3a in PISCES-v2 paper - but note that time spent in euphotic layer has already been incorporated in zval! Eqs 3b-3d are not used
             zmxl_fac = 1._rk - exp( -0.26 * zval ) !self%fpday * zval / ( 12._rk + zval )  ! AC 07.12.2021 - fpday as parameter
 
+            _SET_DIAGNOSTIC_(self%id_zval_diag, zval)
+
             zpr = zprmax * zmxl_fac  ! Jorn: product of muP and f1*f2 (sort of - those have been changed) in Eq 2a, units are 1/s
 
             ! Maximum light intensity
@@ -438,11 +441,10 @@ contains
             ! Computation of the P-I slope for nanos and diatoms (Jorn: product of alpha and chl:C)
             !ztn         = MAX( 0._rk, tem - 15._rk )
             !zadap       = self%xadap * ztn / ( 2._rk + ztn )
-            pislope = (self%pislope_s * zconc2 + self%pislope_l * zconc) * z1_trb   ! Weighted mean of PI slope (g C (g Chl)-1 d-1 (W m-2)-1) for small and large cells
-            !zpislopead = pislope * ( 1._rk + zadap  * EXP( -0.25_rk * etot_w ) )  & ! PI slope multiplied with Chl/C, resulting units are d-1 (W m-2)-1. NB xadap = zadap = 0
-            !&                   *ch / ( c * 12._rk + rtrn)              ! g chl:g C
+            !pislope = (self%pislope_s * zconc2 + self%pislope_l * zconc) * z1_trb   ! Weighted mean of PI slope (g C (g Chl)-1 d-1 (W m-2)-1) for small and large cells
+                
 
-            zpislopead = pislope * ch  /( c * 12. + rtrn)
+            zpislopead = self%pislope * ch  /( c * 12. + rtrn)
 
             ! Computation of production function for Carbon - Jorn: Eq 2a in PISCES-v2 paper
             !  ---------------------------------------------
@@ -534,6 +536,8 @@ contains
             sizea = 1._rk
          ENDIF
 
+         _SET_DIAGNOSTIC_(self%id_zpislopead_diag, zpislopead)
+
          _SET_DIAGNOSTIC_(self%id_sizea, sizea)
 
          sizep = MAX(1._rk, sizea)
@@ -603,7 +607,7 @@ contains
        !     CALL iom_put( "LDETP"   , zpligprod2(:,:,:) * 1e9 * zfact * tmask(:,:,:) )
        !   ENDIF
          _SET_DIAGNOSTIC_(self%id_zprmax, zprmax) ! Maximum growth rate
-         _SET_DIAGNOSTIC_(self%id_Mu, zpr * xlim) ! Realized growth rate
+         _SET_DIAGNOSTIC_(self%id_Mu, zpr ) ! Realized growth rate
          _SET_DIAGNOSTIC_(self%id_Llight, zpr / (zprmax + rtrn))  ! light limitation term
        !   CALL iom_put( "TPP"     , ( zprorcan(:,:,:) + zprorcad(:,:,:) ) * zfact * tmask(:,:,:)  )  ! total primary production
        !   CALL iom_put( "TPNEW"   , ( zpronewn(:,:,:) + zpronewd(:,:,:) ) * zfact * tmask(:,:,:)  ) ! total new production
