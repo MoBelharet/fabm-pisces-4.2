@@ -567,7 +567,7 @@ contains
          ENDIF
 
 
-         sizep = 1._rk !MAX(1.0_rk , sizea)
+         sizep = MAX(1.0_rk , sizea)
 
          _SET_DIAGNOSTIC_(self%id_sizep, sizep)
 
