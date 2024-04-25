@@ -93,7 +93,7 @@ contains
       end if
 
       if (has_silicon) then
-         call self%register_state_variable(self%id_si, 'si', 'mol Si L-1', 'silicon concentration', initial_value=1.53e-8_rk, vertical_movement=-self%ws * r1_rday, minimum=0.0_rk)
+         call self%register_state_variable(self%id_si, 'si', 'mol Si L-1', 'silicon concentration', initial_value=5.e-14_rk, vertical_movement=-self%ws * r1_rday, minimum=0.0_rk)
          call self%add_to_aggregate_variable(standard_variables%total_silicate, self%id_si, scale_factor=1e6_rk)
 
          allocate(silica_dissolution)
@@ -308,7 +308,7 @@ contains
          _GET_(self%id_tem, tem)
          ws = self%ws
          _GET_(self%id_c, c)
-         _GET_(self%id_fe, fe)
+         _GET_(self%id_fe, fe) 
          _GET_(self%id_cons, cons)
          _GET_(self%id_prod, prod)
 
@@ -401,10 +401,11 @@ contains
 
          zorem = zremi * xstep * tgfunc * c
          zofer = zremi * xstep * tgfunc * fe
-         _ADD_SOURCE_(self%id_c,   - (1._rk + self%solgoc) * zorem)
+         _ADD_SOURCE_(self%id_c,   - (1._rk + self%solgoc) * zorem) 
          _ADD_SOURCE_(self%id_fe,  - (1._rk + self%solgoc) * zofer)
          _ADD_SOURCE_(self%id_doc, + zorem)
          _ADD_SOURCE_(self%id_fer, + zofer)
+
          if (self%solgoc /= 0._rk) then
             _ADD_SOURCE_(self%id_poc, + self%solgoc * zorem)
             _ADD_SOURCE_(self%id_sfe, + self%solgoc * zofer)

@@ -20,10 +20,10 @@ module pisces_optics
       type (type_dependency_id)                  :: id_chltot, id_e3t_n
       type (type_surface_dependency_id)          :: id_qsr, id_par_varsw, id_hmld, id_fr_i
       type (type_horizontal_dependency_id)       :: id_qsr_mean
-      type (type_diagnostic_variable_id)         :: id_pe1, id_pe2, id_pe3, id_etot_ndcy, id_etot
-      type (type_surface_diagnostic_variable_id) :: id_heup, id_heup_01, id_emoy, id_zpar
+      type (type_diagnostic_variable_id)         :: id_pe1, id_pe2, id_pe3, id_etot_ndcy, id_etot, id_Tchl
+      type (type_surface_diagnostic_variable_id) :: id_heup, id_heup_01, id_emoy, id_zpar, id_zqsr , id_dqsr, id_dpqsr100, id_gdepw_diag
 
-      logical :: ln_varpar
+      logical :: ln_varpar, ln_p4z_dcyc
       real(rk) :: xparsw
       real(rk) :: xsi0r
    contains
@@ -43,6 +43,7 @@ contains
 
       call self%register_implemented_routines((/source_do_column/))
 
+      call self%get_parameter(self%ln_p4z_dcyc, 'ln_p4z_dcyc', '', 'diurnal cycle : ', default=.false.)
       call self%get_parameter(self%ln_varpar, 'ln_varpar', '', 'use variable PAR : SWR ratio', default=.true.)
       if (.not. self%ln_varpar) then
          call self%get_parameter(parlux, 'parlux', '-', 'PAR : SWR ratio', default=0.43_rk)
@@ -57,7 +58,8 @@ contains
       call self%register_dependency(self%id_e3t_n, standard_variables%cell_thickness)
       call self%register_dependency(self%id_qsr, standard_variables%surface_downwelling_shortwave_flux)
       if (self%ln_varpar) call self%register_dependency(self%id_par_varsw, 'par_varsw', '1', 'PAR : SWR ratio')
-      call self%register_dependency(self%id_qsr_mean, temporal_mean(self%id_qsr, period=86400._rk,resolution=3600._rk))
+      !call self%register_dependency(self%id_qsr_mean, temporal_mean(self%id_qsr, period=86400._rk,resolution=3600._rk))
+      call self%register_dependency(self%id_qsr_mean,standard_variables%surface_mean_downwelling_shortwave_flux)
       call self%register_dependency(self%id_fr_i, standard_variables%ice_area_fraction)
       call self%register_dependency(self%id_hmld, mixed_layer_thickness_defined_by_vertical_tracer_diffusivity)
 
@@ -70,6 +72,11 @@ contains
       call self%register_diagnostic_variable(self%id_heup_01, 'heup_01', 'm', 'depth where daily mean PAR [in ice-free water] equals 0.5 W m-2', source=source_do_column)
       call self%register_diagnostic_variable(self%id_emoy, 'emoy', 'W m-2', 'instantaneous PAR averaged over mixing layer [in ice-free water]', source=source_do_column)
       call self%register_diagnostic_variable(self%id_zpar, 'zpar', 'W m-2', 'daily mean PAR averaged over mixing layer [in ice-free water]', source=source_do_column)
+      call self%register_diagnostic_variable(self%id_zqsr, 'v_zqsr', 'W m-2','Diurnal mean Real shortwave [in ice-free water]', source=source_do_column) ! Added by Mokrane to store the qsr_mean variable
+      call self%register_diagnostic_variable(self%id_dqsr, 'v_dqsr', 'W m-2','Real shortwave [in ice-free water]', source=source_do_column) ! Added by Mokrane to store the qsr variable
+      call self%register_diagnostic_variable(self%id_dpqsr100, 'v_dpqsr100', 'm','Euphotic depth', source=source_do_column) ! Added by Mokrane to store the qsr variable
+      call self%register_diagnostic_variable(self%id_Tchl, 'Tchl', 'unknown','Total chlorophyll', source=source_do_column) ! Added by Mokrane to store the zqsr_mean variable
+      call self%register_diagnostic_variable(self%id_gdepw_diag, 'gdepw_n','m','depth',source=source_do_column) ! Added by Mokrane
    end subroutine initialize
 
    subroutine do_column(self, _ARGUMENTS_DO_COLUMN_)
@@ -78,7 +85,7 @@ contains
 
       real(rk) :: par_varsw, qsr, qsr_mean, zqsr, zqsr_mean, hmld, pqsr100, fr_i
       real(rk) :: ekb, ekg, ekr
-      real(rk) :: zchl3d, zchl, e3t_n, gdepw_n
+      real(rk) :: zchl3d, zchl, e3t_n, gdepw_n, gdepw_n_diag
       integer :: irgb
       real(rk) :: f1, f2, f3, pe1, pe2, pe3, heup, heup_01, etot_ndcy, etot
       real(rk) :: zetmp1, zetmp2, zdepmoy
@@ -108,9 +115,12 @@ contains
          zqsr      = self%xparsw * qsr
          zqsr_mean = self%xparsw * qsr_mean
       ENDIF
+        
+      IF (self%ln_p4z_dcyc) zqsr = zqsr_mean ! if diurnal cycle
 
       !  Light at the euphotic depth 
-      pqsr100 = 0.01_rk * 3._rk * zqsr_mean
+
+      pqsr100 = 0.01_rk * 3._rk * zqsr
 
       ekb = 0._rk
       ekg = 0._rk
@@ -151,20 +161,30 @@ contains
          f1 = EXP( -0.5_rk * ekb )
          f2 = EXP( -0.5_rk * ekg )
          f3 = EXP( -0.5_rk * ekr )
-         pe1 = zqsr_mean * f1
-         pe2 = zqsr_mean * f2
-         pe3 = zqsr_mean * f3
-         etot = zqsr * (f1 + f2 + f3)
-         etot_ndcy = pe1 + pe2 + pe3
+         pe1 = zqsr * f1
+         pe2 = zqsr * f2
+         pe3 = zqsr * f3
+         
+         etot = pe1 + pe2 + pe3
+
+         etot_ndcy = etot
+
          _SET_DIAGNOSTIC_(self%id_pe1, pe1)
          _SET_DIAGNOSTIC_(self%id_pe2, pe2)
          _SET_DIAGNOSTIC_(self%id_pe3, pe3)
          _SET_DIAGNOSTIC_(self%id_etot_ndcy, etot_ndcy)
          _SET_DIAGNOSTIC_(self%id_etot, etot)
+         _SET_SURFACE_DIAGNOSTIC_(self%id_zqsr, qsr_mean) ! Added by Mokrane
+         _SET_SURFACE_DIAGNOSTIC_(self%id_dqsr, qsr) ! Added by Mokrane
+         _SET_SURFACE_DIAGNOSTIC_(self%id_dpqsr100, pqsr100) ! Added by Mokrane
+         _SET_DIAGNOSTIC_(self%id_Tchl,zchl3d) ! Added by Mokrane
 
          gdepw_n = gdepw_n + e3t_n
          IF (first .or. etot_ndcy >= pqsr100) heup    = gdepw_n  ! Euphotic layer depth
          IF (first .or. etot_ndcy >= 0.10)    heup_01 = gdepw_n  ! Euphotic layer depth (light level definition)
+
+         IF (first .or. etot_ndcy >= 0.10) gdepw_n_diag = gdepw_n
+
 
          IF (gdepw_n <= hmld) THEN
             zetmp1 = zetmp1 + etot      * e3t_n   ! integrating instantaneous PAR
@@ -190,6 +210,7 @@ contains
       _SET_SURFACE_DIAGNOSTIC_(self%id_heup_01, heup_01)
       _SET_SURFACE_DIAGNOSTIC_(self%id_emoy, zetmp1 / (zdepmoy + rtrn))
       _SET_SURFACE_DIAGNOSTIC_(self%id_zpar, zetmp2 / (zdepmoy + rtrn))
+      _SET_SURFACE_DIAGNOSTIC_(self%id_gdepw_diag,gdepw_n_diag) ! Mokrane
    end subroutine
 
    ! From NEMO, trc_oce.F90

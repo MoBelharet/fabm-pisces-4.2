@@ -12,7 +12,8 @@ module pisces_silica_dissolution
 
    type, extends(type_base_model) :: type_pisces_silica_dissolution
       type (type_state_variable_id)      :: id_gsi, id_sil
-      type (type_diagnostic_variable_id) :: id_remin
+      type (type_diagnostic_variable_id) :: id_remin, id_zsiremin_diag, id_zfacsib_diag, id_zfacsi_diag , id_gdept_n_diag
+      type (type_surface_diagnostic_variable_id) :: id_zdep_diag
       type (type_dependency_id)          :: id_tem, id_gdept_n, id_ws, id_e3t_n
       type (type_surface_dependency_id)  :: id_hmld, id_heup_01
       real(rk) :: xsilab, xsiremlab, xsirem
@@ -34,6 +35,13 @@ contains
       call self%get_parameter(self%xsilab, 'xsilab', '1', 'labile fraction of biogenic silica', default=0.5_rk)
 
       call self%register_diagnostic_variable(self%id_remin, 'remin', 'mol Si L-1 s-1', 'rate', source=source_do_column)
+      !----- Mokrane ------
+      call self%register_diagnostic_variable(self%id_zsiremin_diag, 'zsiremin', '-', 'diagnostic of zsiremin', source=source_do_column)
+      call self%register_diagnostic_variable(self%id_zfacsib_diag, 'zfacsib', '-', 'diagnostic of zfacsib', source=source_do_column)
+      call self%register_diagnostic_variable(self%id_zfacsi_diag , 'zfacsi', '-', 'diagnostic of zfacsi', source=source_do_column)
+      call self%register_diagnostic_variable(self%id_gdept_n_diag, 'gdept_n', '-', 'diagnostic of gdept_n', source=source_do_column)
+      call self%register_surface_diagnostic_variable(self%id_zdep_diag, 'zdep', '-', 'diagnostic of zdep', source=source_do_column)
+      !---------------------
 
       call self%register_state_dependency(self%id_gsi, 'gsi', 'mol Si L-1', 'particulate organic silicon')
       call self%register_state_dependency(self%id_sil, 'sil', 'mol Si L-1', 'silicate')
@@ -60,6 +68,7 @@ contains
       _GET_SURFACE_(self%id_heup_01, heup_01)
       _GET_SURFACE_(self%id_hmld, hmld)
       zdep = MAX( hmld, heup_01 )
+      _SET_SURFACE_DIAGNOSTIC_(self%id_zdep_diag, zdep)
 
       zfacsi = self%xsilab                           ! Jorn: labile fraction of frustule (1)
       zfacsib = self%xsilab / ( 1.0 - self%xsilab )  ! Jorn: ratio of labile : non-labile fractions of frustule (-)
@@ -91,7 +100,12 @@ contains
          !
          _ADD_SOURCE_(self%id_gsi, - zosil)
          _ADD_SOURCE_(self%id_sil, + zosil)
-         _SET_DIAGNOSTIC_(self%id_remin, zosil)
+         _SET_DIAGNOSTIC_(self%id_remin, zosil/xstep)
+
+         _SET_DIAGNOSTIC_(self%id_zsiremin_diag, zsiremin/xstep)
+         _SET_DIAGNOSTIC_(self%id_zfacsib_diag , zfacsib)
+         _SET_DIAGNOSTIC_(self%id_zfacsi_diag , zfacsi)
+         _SET_DIAGNOSTIC_(self%id_gdept_n_diag, gdept_n)
 
       _DOWNWARD_LOOP_END_
    end subroutine

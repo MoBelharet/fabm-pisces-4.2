@@ -15,15 +15,17 @@ module pisces_phytoplankton
       type (type_state_variable_id)     :: id_c, id_ch, id_fe, id_si, id_fer
       type (type_state_variable_id)     :: id_no3, id_nh4, id_po4, id_sil, id_biron, id_doc, id_dic, id_tal, id_oxy
       type (type_state_variable_id)     :: id_poc, id_sfe, id_goc, id_gsi, id_bfe, id_cal, id_prodpoc, id_prodgoc
-      type (type_dependency_id)         :: id_tem, id_gdept_n, id_xdiss, id_plig, id_sizep_prev
+      type (type_dependency_id)         :: id_tem, id_gdept_n, id_xdiss, id_plig  , id_sizep_prev
       type (type_dependency_id)         :: id_pe1, id_pe2, id_pe3, id_etot_ndcy, id_etot_w
       type (type_surface_dependency_id) :: id_zstrn, id_hmld, id_heup_01, id_etot_wm
       type (type_surface_dependency_id) :: id_gphit, id_fr_i, id_xksi_
       type (type_horizontal_dependency_id) :: id_xksi
-      type (type_diagnostic_variable_id) :: id_quota, id_xfracal, id_pcal,id_sizep, id_consfe3
-      type (type_diagnostic_variable_id) :: id_zlim1, id_zlim2, id_zlim3, id_zlim4, id_xlim, id_sizea
+      type (type_diagnostic_variable_id) :: id_quota, id_xfracal, id_pcal,id_consfe3 , id_sizep
+      type (type_diagnostic_variable_id) :: id_zlim1, id_zlim2, id_zlim3, id_zlim4, id_xlim, id_sizea, id_xlimsi_diag, id_zsilfac_diag, &
+      & id_zratiosi_diag, id_zmaxsi_diag, id_zcompa_diag, id_zconcno3_diag, id_zconcnh4_diag
       type (type_diagnostic_variable_id) :: id_PPPHY, id_PPNEW, id_PBSi, id_PFe
-      type (type_diagnostic_variable_id) :: id_zprmax, id_Mu, id_Llight, id_zval_diag, id_zpislopead_diag
+      type (type_diagnostic_variable_id) :: id_zprmax, id_Mu, id_Llight, id_zval_diag, id_zpislopead_diag, id_zrespp_diag, &
+      & id_ztortp_diag,id_sizep_diag, id_etot_w_diag, id_etot_wm_diag
 
       logical :: diatom
       logical :: calcify
@@ -117,7 +119,7 @@ contains
       end if
       call self%get_parameter(self%concfer, 'concfer', 'mol Fe L-1', 'minimum half-saturation constant for iron uptake')
       call self%get_parameter(self%xsizer, 'xsizer', '-', 'size ratio', default=3._rk)
-      if (self%diatom) call self%get_parameter(self%grosip, 'grosip', 'mol Si/mol C', 'optimal Si / C uptake ratio', default=0.159_rk)
+      if (self%diatom) call self%get_parameter(self%grosip, 'grosip', 'mol Si/mol C', 'optimal Si / C uptake ratio', default=0.13_rk)
       call self%get_parameter(self%qfelim, 'qfelim', 'mol Fe (mol C)-1', 'optimal iron quota', default=10.e-6_rk)
       call self%get_parameter(self%fecm, 'fecm', 'mol Fe (mol C)-1', 'maximum iron quota', default=40.e-6_rk)
       call self%get_parameter(self%chlcm, 'chlcm', 'g Chl (g C)-1', 'maximum Chl / C ratio')
@@ -125,9 +127,8 @@ contains
       call self%get_parameter(self%xsize, 'xsize', 'mol C L-1', 'threshold concentration for size dependency (biomass above this threshold consists of large cells)', default=1.e-6_rk)
       call self%get_parameter(self%xmort, 'xmort', 'mol C L-1', 'threshold concentration for mortality')
       call self%get_parameter(self%wchl, 'wchl', 'd-1 (umol C L-1)-1', 'quadratic mortality', default=0.01_rk)
-      !call self%get_parameter(self%wchlm, 'wchlm', 'd-1 (umol C L-1)-1', 'maximum additional quadratic mortality due to nutrient limitation', default=0._rk)
       call self%get_parameter(self%mprat, 'mprat', 'd-1', 'mortality', default=0.01_rk)
-      call self%get_parameter(self%xkmort, 'xkmort', 'mol C L-1', 'half saturation constant for mortality', default=2.e-7_rk)
+      call self%get_parameter(self%xkmort, 'xkmort', 'mol C L-1', 'half saturation constant for mortality', default=1.e-7_rk)
       !!!call self%get_parameter(self%lthet, 'lthet', '-', 'proportional loss of ligands due to Fe uptake', default=1.0_rk)
       self%texcret = 1._rk - self%excret
       if (self%calcify) call self%get_parameter(self%caco3r, 'caco3r', '1', 'mean rain ratio', default=0.2_rk)
@@ -204,7 +205,8 @@ contains
       call self%register_state_dependency(self%id_tal, standard_variables%alkalinity_expressed_as_mole_equivalent)
       call self%register_state_dependency(self%id_oxy, 'oxy', 'mol O2 L-1', 'oxygen')
 
-      if (self%calcify) call self%register_state_dependency(self%id_fer, 'fer', 'mol Fe L-1', 'iron')
+      !if (self%calcify) call self%register_state_dependency(self%id_fer, 'fer', 'mol Fe L-1', 'iron')
+      call self%register_state_dependency(self%id_fer, 'fer', 'mol Fe L-1', 'iron')
 
       if (self%diatom) then
          call self%register_dependency(self%id_gphit, standard_variables%latitude)
@@ -235,12 +237,24 @@ contains
       call self%register_diagnostic_variable(self%id_consfe3,'consfe3', 'mol Fe L-1', 'iron consumption')
       call self%add_to_aggregate_variable(consfe3_sum, self%id_consfe3)
      
-      call self%register_diagnostic_variable(self%id_sizep, 'sizep','-','Mean relative size', missing_value=1._rk) 
-      call self%register_dependency(self%id_sizep_prev, 'sizep','-','Mean relative size')  ! To initialize sizep to 1
+      call self%register_diagnostic_variable(self%id_sizep, 'sizep','-','Mean relative size', missing_value=1.0_rk) 
+      call self%register_dependency(self%id_sizep_prev, 'sizep','-','Mean relative size')  
       call self%register_diagnostic_variable(self%id_sizea, 'sizea','-','Mean relative size at next time-step')
 
       call self%register_diagnostic_variable(self%id_zval_diag, 'zval_diag','-','diagnostic of zval')
-      call self%register_diagnostic_variable(self%id_zpislopead_diag, 'zpislopead_diag','-','diagnostic_zpislopead')
+      call self%register_diagnostic_variable(self%id_zpislopead_diag, 'zpislopead_diag','-','diagnostic of zpislopead')
+      call self%register_diagnostic_variable(self%id_zrespp_diag, 'zrespp_diag', '-' , 'diagnostic of zrespp')
+      call self%register_diagnostic_variable(self%id_ztortp_diag, 'ztortp_diag', '-', 'diagnostic of ztortp')
+      call self%register_diagnostic_variable(self%id_xlimsi_diag, 'xlimsi_diag', '-', 'Si limitation term')
+      call self%register_diagnostic_variable(self%id_zsilfac_diag, 'zsilfac_diag', '-', 'diagnostic of zsilfac')
+      call self%register_diagnostic_variable(self%id_zratiosi_diag, 'zratiosi_diag', '-', 'diagnostic of zratiosi')
+      call self%register_diagnostic_variable(self%id_zmaxsi_diag, 'zmaxsi_diag', '-', 'diagnostic of zmaxsi')
+      call self%register_diagnostic_variable(self%id_zcompa_diag, 'zcompa_diag', '-', 'diagnostic of zcompa')
+      call self%register_diagnostic_variable(self%id_zconcno3_diag, 'zconcno3_diag','-', 'diagnostic of zconcno3')
+      call self%register_diagnostic_variable(self%id_zconcnh4_diag, 'zconcnh4_diag','-', 'diagnostic of zconcnh4')
+      call self%register_diagnostic_variable(self%id_sizep_diag, 'sizep_diag', '-', 'diagnostic of sizep')
+      call self%register_diagnostic_variable(self%id_etot_w_diag, 'etot_w_diag', '-', 'diagnostic of etot_w')
+      call self%register_diagnostic_variable(self%id_etot_wm_diag, 'etot_w_m_diag', '-', 'diagnostic of etot_wm')
 
    end subroutine initialize
 
@@ -301,8 +315,8 @@ contains
       real(rk) :: c, ch, fe, si, fer
       real(rk) :: nh4, no3, po4, biron, sil
       real(rk) :: tem, gdept_n, zstrn, hmld, heup_01, etot_ndcy, etot_w, etot_wm, gphit, fr_i
-      real(rk) :: tgfunc, zconc, zconc2, z1_trb, concfe, zconcno3, zconcnh4, zdenom, xno3, xnh4, xpo4, zlim1, zlim2, xlim, xlimsi, sizep, xfer
-      real(rk) :: xksi, zlim3
+      real(rk) :: tgfunc, zconc, zconc2, z1_trb, concfe, zconcno3, zconcnh4, zdenom, xno3, xnh4, xpo4, zlim1, zlim2, xlim, xlimsi, xfer
+      real(rk) :: xksi, zlim3, sizep, sizep_prev
       real(rk) :: zratio, zironmin, zlim4, xlimfe, xqfuncfec, znutlimtot, zlimno3, zlimnh4
       real(rk) :: zprmax, zval, zmxl_chl, zmxl_fac, zpr
       real(rk) :: ztn, zadap, zpislopead, zpislope, zprch
@@ -313,6 +327,7 @@ contains
       real(rk) :: xfraresp, xfratort, zcompa, zsizerat, zrespp, ztortp, zmortp, zfactfe, zfactch, zfactsi, zprcaca, xdiss
       real(rk) :: zbiron, plig, znutlim, faf, zfalim, sizea, zcoef
       real(rk) :: zratiosi, zmaxsi, consfe3, zfecm, zlimfac, zsizetmp
+
 
       _LOOP_BEGIN_
          _GET_(self%id_c, c)                      ! carbon (mol/L)
@@ -327,7 +342,8 @@ contains
 
          _GET_(self%id_plig, plig)
 
-         if (self%calcify) _GET_(self%id_fer,  fer)                 ! ambient iron concentration (mol Fe/L)
+         !if (self%calcify) _GET_(self%id_fer,  fer)                 ! ambient iron concentration (mol Fe/L)
+         _GET_(self%id_fer,  fer)
 
          _GET_(self%id_tem, tem)                  ! temperature (degrees Celsius)
          _GET_(self%id_gdept_n, gdept_n)          ! depth (m)
@@ -360,12 +376,15 @@ contains
          zconcno3           = self%concno3 * sizep**0.81
          zconcnh4        = self%concnh4 * sizep**0.81 
          
+         _SET_DIAGNOSTIC_(self%id_zconcno3_diag , zconcno3)
+         _SET_DIAGNOSTIC_(self%id_zconcnh4_diag , zconcnh4)
+         _SET_DIAGNOSTIC_(self%id_sizep_diag , sizep)
 
          ! Computation of the optimal allocation parameters
           ! Based on the different papers by Pahlow et al., and 
           ! Smith et al.
           ! ---------------------------------------------------
-
+          biron = fer
           zbiron = ( 75._rk * ( 1._rk - plig ) + plig ) * biron       
           znutlim = zbiron / concfe
           faf = MAX(0.01_rk, MIN(0.99_rk, 1._rk / ( SQRT(znutlim) + 1._rk) ) )
@@ -409,7 +428,7 @@ contains
 
 
          zcoef = c - MIN(self%xsize, c )
-         sizea = 1._rk + ( self%xsizer -1._rk ) * zcoef / ( self%xsize + zcoef ) ! Mokrane : TO DO : declare sizea
+         sizea = 1._rk + ( self%xsizer -1._rk ) * zcoef / ( self%xsize + zcoef ) 
          ! ======================================================================================
 
          _SET_DIAGNOSTIC_(self%id_zlim1, zlim1)
@@ -417,6 +436,7 @@ contains
          _SET_DIAGNOSTIC_(self%id_zlim3, zlim3)
          _SET_DIAGNOSTIC_(self%id_zlim4, zlim4)
          _SET_DIAGNOSTIC_(self%id_xlim, xlim)
+         _SET_DIAGNOSTIC_(self%id_xlimsi_diag, xlimsi)
 
          ! Computation of the optimal production - Jorn note conversion to 1/s
          zprmax = self%mumax0 * r1_rday * tgfunc   ! Jorn: Eq 4b in PISCES-v2 paper; NEMO-PISCES uses a hardcoded mumax0 = 0.8, which evolved from the value of 0.6 in the paper (Olivier Aumont 2021-04-21)
@@ -456,7 +476,9 @@ contains
             !--------------------------------------------------
             zpislope = zpislopead / ( zprmax * zmxl_chl * rday + rtrn )   ! note zprmax is in 1/s and multiplied with rday to convert to d-1. Resulting units are (W m-2)-1. No divison by nutrient limitation (similar to Eq 2a replacing 2b)
             zprch = zprmax * ( 1._rk - EXP( -zpislope * etot_wm ) )       ! Units 1/s, note this uses mean PAR experienced in the euphotic layer (or 0 if below ML) - units are 1/d
-
+            
+            _SET_DIAGNOSTIC_(self%id_etot_w_diag, etot_w)
+            _SET_DIAGNOSTIC_(self%id_etot_wm_diag, etot_wm)
             !  Computation of a proxy of the N/C ratio - Jorn: this is dimensionless and thus relative to rno3 (it is not the absolute N:C!)
             !  ---------------------------------------
             zval = MIN( xpo4, ( xnh4 + xno3 ) )   &    ! Jorn: nitrogen and phosphate limitation, divided by light limitation
@@ -480,9 +502,17 @@ contains
                ELSE
                   zsilfac = 1._rk +         zsiborn / ( zsiborn + self%xksi2**3 )  ! ??? 23d suggests this term is 1 for lat > 0
                ENDIF
+
+               _SET_DIAGNOSTIC_(self%id_zsilfac_diag, zsilfac)
+
                zratiosi = 1._rk - si / ( c + rtrn ) / ( zsilfac * self%grosip * 3.0 + rtrn )
                zratiosi = MAX(0._rk, MIN(1._rk, zratiosi) )
+
+               _SET_DIAGNOSTIC_(self%id_zratiosi_diag, zratiosi)
+
                zmaxsi  = (1._rk + 0.1_rk**4) * zratiosi**4 / ( zratiosi**4 + 0.1_rk**4 )
+
+               _SET_DIAGNOSTIC_(self%id_zmaxsi_diag, zmaxsi)
 
                IF( xlimsi /= xlim ) THEN
                   zysopt = zlim * zsilfac * self%grosip * 1._rk * zmaxsi
@@ -505,7 +535,7 @@ contains
             !
             zlimfac = xlim * zprch / ( zprmax + rtrn )
             zsizetmp = 1._rk + 1.3_rk * ( self%xsizer - 1._rk ) * zlimfac**3/(0.3_rk + zlimfac**3)
-            sizea = min(self%xsizer, max( sizea, zsizetmp ) )
+            sizea = MIN(self%xsizer, MAX( sizea, zsizetmp ) )
 
             zfecm = xqfuncfec + ( self%fecm - xqfuncfec ) * ( xno3 + xnh4 )
 
@@ -533,15 +563,16 @@ contains
             zysopt = 0._rk
             zpr = 0._rk
             quota = 1._rk
-            sizea = 1._rk
+            !sizea = 1._rk
          ENDIF
 
-         _SET_DIAGNOSTIC_(self%id_zpislopead_diag, zpislopead)
 
-         _SET_DIAGNOSTIC_(self%id_sizea, sizea)
+         sizep = 1._rk !MAX(1.0_rk , sizea)
 
-         sizep = MAX(1._rk, sizea)
          _SET_DIAGNOSTIC_(self%id_sizep, sizep)
+
+         _SET_DIAGNOSTIC_(self%id_zpislopead_diag, zpislopead)
+         _SET_DIAGNOSTIC_(self%id_sizea, sizea)
 
          ! This variable must be declared as a diagnostic variable
          ! it is used in iron.F90
@@ -570,8 +601,7 @@ contains
          consfe3   = self%texcret * zprofe * 75._rk / ( rtrn + ( plig + 75._rk * (1.0 - plig ) )  * fer )
 
          if (self%diatom) then
-         !   _ADD_SOURCE_(self%id_si, zprorca * zysopt * self%texcret)
-         !   _ADD_SOURCE_(self%id_sil, -self%texcret * zprorca * zysopt)
+
             _ADD_SOURCE_(self%id_si, zprmax * zysopt * c * self%texcret)
             _ADD_SOURCE_(self%id_sil, - zprmax * zysopt * c * self%texcret)
          end if
@@ -600,7 +630,8 @@ contains
        !   !
          _SET_DIAGNOSTIC_(self%id_PPPHY, zprorca * 1.e+3) ! primary production
          _SET_DIAGNOSTIC_(self%id_PPNEW, zpronew * 1.e+3) ! new primary production
-         if (self%diatom) _SET_DIAGNOSTIC_(self%id_PBSi, zprorca * 1.e+3 * zysopt) ! biogenic silica production
+         !if (self%diatom) _SET_DIAGNOSTIC_(self%id_PBSi, zprorca * 1.e+3 * zysopt) ! biogenic silica production
+         if (self%diatom) _SET_DIAGNOSTIC_(self%id_PBSi, zysopt * 1.e+3) ! Mokrane
          _SET_DIAGNOSTIC_(self%id_PFe, zprofe * 1.e+3) ! biogenic iron production
        !   IF( ln_ligand ) THEN
        !     CALL iom_put( "LPRODP"  , zpligprod1(:,:,:) * 1e9 * zfact * tmask(:,:,:) )
@@ -654,6 +685,8 @@ contains
          ! Jorn: from p4zmort.F90
          zcompa = MAX( ( c - self%xmort ), 0.e0_rk )
 
+         _SET_DIAGNOSTIC_(self%id_zcompa_diag, zcompa)
+
          !    Aggregation term for diatoms is increased in case of nutrient
          !    stress as observed in reality. The stressed cells become more
          !    sticky and coagulate to sink quickly out of the euphotic zone
@@ -661,7 +694,7 @@ contains
          ! Jorn: for non-diatoms this will not have any effect because wchldm will be 0 (see zrespp)
          zlim2   = xlim * xlim
          zlim1   = 0.25_rk * ( 1._rk - zlim2 ) / ( 0.25_rk + zlim2 )    ! Jorn: seems to have replaced Eq 13
-
+         !_SET_DIAGNOSTIC_(self%id_zlim1, zlim1)
          !     When highly limited by macronutrients, very small cells
          !     dominate the community. As a consequence, aggregation
          !     due to turbulence is negligible. Mortality is also set
@@ -676,17 +709,17 @@ contains
          !     as observed for instance in case of iron limitation.
          ztortp = self%mprat * xstep * zcompa * c / ( self%xkmort + c )    ! Jorn: hyperbolic part of 5th term in Eq 37, except for zsizerat, minimum threshold in zcompa
 
-         zmortp = zrespp + ztortp
+         zmortp = zrespp + ztortp  
 
          !   Update the arrays TRA which contains the biological sources and sinks
 
          zfactfe = fe * z1_trb
          zfactch = ch * z1_trb
-         _ADD_SOURCE_(self%id_c, - zmortp)
+         _ADD_SOURCE_(self%id_c, - zmortp)  
          _ADD_SOURCE_(self%id_ch, - zmortp * zfactch)
          _ADD_SOURCE_(self%id_fe, - zmortp * zfactfe)
          if (self%diatom) then
-            !_GET_(self%id_si, si)
+            _GET_(self%id_si, si)
             zfactsi = si * z1_trb
             _ADD_SOURCE_(self%id_si, - zmortp * zfactsi)
             _ADD_SOURCE_(self%id_gsi,  zmortp * zfactsi)
@@ -699,12 +732,16 @@ contains
          _ADD_SOURCE_(self%id_cal, + zprcaca)
          _SET_DIAGNOSTIC_(self%id_pcal, zprcaca * 1e3_rk)
 
-         _ADD_SOURCE_(self%id_poc, + ( 1._rk - xfraresp ) * zrespp +   ztortp)
-         _ADD_SOURCE_(self%id_goc, + xfraresp * zrespp )
+         _ADD_SOURCE_(self%id_poc, + ( 1._rk - xfraresp ) * zrespp +   ztortp) 
+         _ADD_SOURCE_(self%id_goc, + xfraresp * zrespp ) ! Mokrane : for nano : xfraresp = 0
          _ADD_SOURCE_(self%id_prodpoc, + ( 1._rk - xfraresp ) * zrespp +  ztortp)
          _ADD_SOURCE_(self%id_prodgoc, + xfraresp * zrespp )
          _ADD_SOURCE_(self%id_sfe, + (( 1._rk - xfraresp ) * zrespp +  ztortp) * zfactfe)
          _ADD_SOURCE_(self%id_bfe, + xfraresp * zrespp  * zfactfe)
+
+
+         _SET_DIAGNOSTIC_(self%id_zrespp_diag, zrespp/xstep/c)
+         _SET_DIAGNOSTIC_(self%id_ztortp_diag, ztortp/xstep)
 
       _LOOP_END_
    end subroutine

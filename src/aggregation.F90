@@ -67,8 +67,8 @@ contains
          ! Part II : Differential settling
 
          !  Aggregation of small into large particles
-         zagg3 =  8.63 * xstep * poc * goc    ! Jorn Eq 39, value of 47.1 matches a9 in paper, but a8 expected per Eq 39
-         zagg4 =  132.8  * xstep * poc * poc    ! Jorn Eq 39, value of 3.3 matches a8 in paper, but a9 expected per Eq 39
+         zagg3 =  8.63 * xstep * poc * poc    ! Jorn Eq 39, value of 47.1 matches a9 in paper, but a8 expected per Eq 39
+         zagg4 =  132.8  * xstep * poc * goc    ! Jorn Eq 39, value of 3.3 matches a8 in paper, but a9 expected per Eq 39
 
          zagg   = zagg1 + zagg2 + zagg3 + zagg4
          zaggfe = zagg * sfe / ( poc + rtrn )
