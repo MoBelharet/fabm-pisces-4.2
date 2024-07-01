@@ -15,12 +15,14 @@ module pisces_zooplankton
       type (type_state_variable_id) :: id_don, id_dop, id_oxy, id_fer
       type (type_state_variable_id) :: id_dia, id_dfe, id_dsi, id_dch, id_phy, id_nfe, id_nch, id_zoo, id_poc, id_sfe, id_goc, id_bfe, id_gsi
       type (type_state_variable_id) :: id_po4, id_no3, id_nh4, id_doc, id_dic, id_tal, id_poc_waste, id_pof_waste, id_pos_waste, id_cal
-      type (type_state_variable_id) :: id_conspoc, id_consgoc, id_prodpoc, id_poc_waste_prod
+      type (type_state_variable_id) :: id_conspoc, id_consgoc, id_prodpoc, id_poc_waste_prod, id_prodgoc
       type (type_dependency_id)     :: id_tem, id_nitrfac, id_quotan, id_quotad, id_xfracal, id_wspoc, id_wsgoc, id_gdepw_n ,id_sized, id_sizen
       type (type_surface_dependency_id) :: id_hmld, id_heup_01
       type (type_diagnostic_variable_id) :: id_zfezoo, id_zgrazing, id_zfrac, id_pcal
-      type (type_diagnostic_variable_id) :: id_zfood_diag, id_zfoodlim_diag, id_ztmp2_diag, id_zgrazp_diag, id_zgrazpoc_diag,&
-      & id_zcompaph_diag, id_zcompapoc_diag, id_zcompadi_diag, id_sizen_diag, id_sized_diag , id_zgraze_diag, id_zdiffdn_diag
+      type (type_diagnostic_variable_id) :: id_zfood_diag, id_zfoodlim_diag, id_ztmp2_diag, id_ztmp1_diag, id_zgrazp_diag, id_zgrazpoc_diag,&
+      & id_zcompaph_diag, id_zcompapoc_diag, id_zcompadi_diag, id_sizen_diag, id_sized_diag , id_zgraze_diag,id_zdiffdn_diag,id_ztmp3_diag, id_ztmp4_diag, &
+      & id_zproport_diag, id_zgrasrat_diag, id_zgrasratn_diag, id_zepshert_diag, id_zepsherv_diag, id_quotan_diag, id_zepsherf_diag, &
+      & id_zepsherq_diag,  id_zbeta_diag, id_zgrazpof_diag, id_zgrazd_diag, id_zgraztotf_diag, id_zgraztotc_diag, id_zgraztotn_diag
 
       real(rk) :: grazrat, logbz, resrat, xkmort, mzrat, xthresh, xkgraz, ferat, feratn, epsher, epshermin, unass, sigma, part, grazflux
       real(rk) :: xthreshdia, xthreshphy, xthreshzoo, xthreshpoc
@@ -85,6 +87,9 @@ contains
       call self%register_diagnostic_variable(self%id_zfood_diag, 'zfood_diag', '-', 'zfood diagnostic')
       call self%register_diagnostic_variable(self%id_zfoodlim_diag, 'zfoodlim_diag', '-', 'zfoodlim diagnostic')
       call self%register_diagnostic_variable(self%id_ztmp2_diag, 'ztmp2_diag', '-', 'ztmp2 diagnostic')
+      call self%register_diagnostic_variable(self%id_ztmp1_diag, 'ztmp1_diag', '-', 'ztmp1 diagnostic')
+      call self%register_diagnostic_variable(self%id_ztmp3_diag, 'ztmp3_diag', '-', 'ztmp3 diagnostic')
+      call self%register_diagnostic_variable(self%id_ztmp4_diag, 'ztmp4_diag', '-', 'ztmp4 diagnostic')
       call self%register_diagnostic_variable(self%id_zgrazp_diag, 'zgrazp_diag', '-', 'zgrazp diagnostic')
       call self%register_diagnostic_variable(self%id_zgrazpoc_diag, 'zgrazpoc_diag', '-', 'zgrazpoc diagnostic')
       call self%register_diagnostic_variable(self%id_zcompaph_diag, 'zcompaph_diag', '-', 'zcompaph diagnostic')
@@ -94,6 +99,20 @@ contains
       call self%register_diagnostic_variable(self%id_sized_diag, 'sized_diag' , '-', 'diagnostic of sized' )
       call self%register_diagnostic_variable(self%id_zgraze_diag, 'zgraze_diag' , '-', 'diagnostic of zgraze' )
       call self%register_diagnostic_variable(self%id_zdiffdn_diag, 'zdiffdn_diag', '-', 'diagnostic of zdiffdn' )
+      call self%register_diagnostic_variable(self%id_zproport_diag, 'zproport_diag', '-','diagnostic of zproport')
+      call self%register_diagnostic_variable(self%id_zgrasrat_diag, 'zgrasrat_diag', '-','diagnostic of zgrasrat')
+      call self%register_diagnostic_variable(self%id_zgrasratn_diag, 'zgrasratn_diag', '-','diagnostic of zgrasratn')
+      call self%register_diagnostic_variable(self%id_zepshert_diag, 'zepshert_diag', '-','diagnostic of zepshert')
+      call self%register_diagnostic_variable(self%id_zepsherv_diag, 'zepsherv_diag', '-','diagnostic of zepsherv')
+      call self%register_diagnostic_variable(self%id_quotan_diag, 'quotan_diag' , '-','diagnostic of quotan')
+      call self%register_diagnostic_variable(self%id_zepsherf_diag, 'zepsherf_diag', '-','diagnostic of zepsherf')
+      call self%register_diagnostic_variable(self%id_zepsherq_diag, 'zepsherq_diag', '-','diagnostic of zepsherq')
+      call self%register_diagnostic_variable(self%id_zbeta_diag, 'zbeta_diag', '-','diagnostic of zbeta')
+      call self%register_diagnostic_variable(self%id_zgrazpof_diag, 'zgrazpof_diag', '-','diagnostic of zgrazpof')
+      call self%register_diagnostic_variable(self%id_zgrazd_diag, 'zgrazd_diag', '-','diagnostic of zgrazd')
+      call self%register_diagnostic_variable(self%id_zgraztotf_diag, 'zgraztotf_diag', '-', 'diagnostic of zgraztotf' )
+      call self%register_diagnostic_variable(self%id_zgraztotc_diag, 'zgraztotc_diag', '-', 'diagnostic of zgraztotc' )
+      call self%register_diagnostic_variable(self%id_zgraztotn_diag, 'zgraztotn_diag', '-', 'diagnostic of zgraztotn' )
 
       call self%register_state_dependency(self%id_no3, 'no3', 'mol C L-1', 'nitrate')
       call self%register_state_dependency(self%id_nh4, 'nh4', 'mol C L-1', 'ammonium')
@@ -128,6 +147,7 @@ contains
       call self%register_state_dependency(self%id_gsi, 'gsi', 'mol Si L-1', 'large particulate organic silicon')
       call self%register_state_dependency(self%id_bfe, 'bfe', 'mol Fe L-1', 'large particulate organic iron')
       call self%register_state_dependency(self%id_prodpoc, 'prodpoc', 'mol C L-1', 'produced small particulate organic carbon')
+      call self%register_state_dependency(self%id_prodgoc, 'prodgoc', 'mol C L-1', 'produced big particulate organic carbon') !Mokrane
       call self%register_state_dependency(self%id_conspoc, 'conspoc', 'mol C L-1', 'consumed small particulate organic carbon')
       call self%register_state_dependency(self%id_consgoc, 'consgoc', 'mol C L-1', 'consumed large particulate organic carbon')
       call self%register_dependency(self%id_quotan, 'quotan', '-', 'proxy for N quota of nanophytoplankton')
@@ -138,6 +158,7 @@ contains
       call self%register_dependency(self%id_sizen,'sizen','-','Mean relative size of nanophytoplankton')
       call self%register_dependency(self%id_sized,'sized','-','Mean relative size of diatoms')
       call self%register_dependency(self%id_hmld, mixed_layer_thickness_defined_by_vertical_tracer_diffusivity)
+      !call self%register_dependency(self%id_hmld, standard_variables%mixed_layer_thickness_defined_by_vertical_tracer_diffusivity)
       call self%register_dependency(self%id_heup_01, 'heup_01', 'm', 'euphotic layer depth (PAR > 0.5 W m-2)')
       call self%register_dependency(self%id_gdepw_n, standard_variables%depth)
 
@@ -164,6 +185,7 @@ contains
       call self%request_coupling_to_model(self%id_gsi, 'gom', 'si')
       call self%request_coupling_to_model(self%id_cal, 'gom', 'cal')
       call self%request_coupling_to_model(self%id_wsgoc, 'gom', 'ws')
+      call self%request_coupling_to_model(self%id_prodgoc, 'gom', 'prod') ! Mokrane
       call self%request_coupling_to_model(self%id_consgoc, 'gom', 'cons')
 
       call self%register_dependency(self%id_tem, standard_variables%temperature)
@@ -183,7 +205,7 @@ contains
       real(rk) :: zgrazffeg, zgrazfffg, zgrazffep, zgrazfffp, zproport, zratio, zratio2, zfrac, zfracfe
       real(rk) :: zgrasrat, zgrasratn, zepshert, zbeta, zepsherf, zepsherq, zepsherv, zgrafer, zgrarem, zgrarsig, zmortz, zmortzgoc
       real(rk) :: zprcaca, zfracal, zgrazcal, cal, zsigma, zdiffdn
-      real(rk) :: ztmp1, ztmp2, ztmp3, ztmp4, ztmptot, sizen, sized, gdepw_n, hmld, heup_01
+      real(rk) :: ztmp1, ztmp2, ztmp3, ztmp4, ztmptot, sizen, sized, gdepw_n, hmld, heup_01, zgrapoc, zgrapof
 
       _LOOP_BEGIN_
          _GET_(self%id_c, c)
@@ -253,12 +275,13 @@ contains
          ! ----------------------------------
          zfood     = self%xprefn * zcompaph + self%xprefc * zcompapoc + self%xprefd * zcompadi + self%xprefz * zcompaz   ! Jorn: 1st term in Eq 26a
          _SET_DIAGNOSTIC_(self%id_zfood_diag, zfood)
-         zfoodlim  = MAX( 0. , zfood - min(self%xthresh, 0.5_rk * zfood) )                                               ! Jorn: 2nd term in Eq 26a
+         zfoodlim  = MAX( 0. , zfood - MIN(self%xthresh, 0.5_rk * zfood) )                                               ! Jorn: 2nd term in Eq 26a
          _SET_DIAGNOSTIC_(self%id_zfoodlim_diag, zfoodlim)
          zdenom    = zfoodlim / ( self%xkgraz + zfoodlim )
          zdenom2   = zdenom / ( zfood + rtrn )
-         zgraze    = self%grazrat * xstep * tgfunc2 * c * (1. - nitrfac)    ! Jorn: compared to paper (Eq 26a), (1._rk - nitrfac) factor seems to have been added
+         zgraze    = self%grazrat * xstep * tgfunc2 * c * (1. - nitrfac)! *c    ! Jorn: compared to paper (Eq 26a), (1._rk - nitrfac) factor seems to have been added
           
+
          _SET_DIAGNOSTIC_(self%id_zgraze_diag, zgraze/xstep)
 
          zsigma = 1.0_rk - zdenom**2/(0.05_rk**2 + zdenom**2)
@@ -268,12 +291,17 @@ contains
 
          _SET_DIAGNOSTIC_(self%id_zdiffdn_diag, zdiffdn)
 
-         ztmp1 = self%xprefn * zcompaph * ( zcompaph + zdiffdn * zcompadi ) / ( 1.0 + zdiffdn ) !
-         ztmp2 = self%xprefd * zcompadi * ( zcompadi + zdiffdn * zcompaph ) / ( 1.0 + zdiffdn ) !
+         ztmp1 = self%xprefn * zcompaph * ( zcompaph + zdiffdn * zcompadi ) / ( 1._rk + zdiffdn ) !
+         ztmp2 = self%xprefd * zcompadi * ( zcompadi + zdiffdn * zcompaph ) / ( 1._rk + zdiffdn ) !
+         ztmp3 = self%xprefc * zcompapoc * zcompapoc !
+         ztmp4 = self%xprefz * zcompaz * zcompaz !
+
+         _SET_DIAGNOSTIC_(self%id_ztmp1_diag, ztmp1)
          _SET_DIAGNOSTIC_(self%id_ztmp2_diag, ztmp2)
-         ztmp3 = self%xprefc * zcompapoc**2 ! 
-         ztmp4 = self%xprefz * zcompaz**2 ! A déclarer
-         ztmptot = ztmp1 + ztmp2 + ztmp3 + ztmp4 + rtrn ! A déclarer
+         _SET_DIAGNOSTIC_(self%id_ztmp3_diag, ztmp3)
+         _SET_DIAGNOSTIC_(self%id_ztmp4_diag, ztmp4)
+
+         ztmptot = ztmp1 + ztmp2 + ztmp3 + ztmp4 + rtrn ! 
          ztmp1 = ztmp1 / ztmptot
          ztmp2 = ztmp2 / ztmptot
          ztmp3 = ztmp3 / ztmptot
@@ -285,14 +313,11 @@ contains
          zgrazz    = zgraze  * ztmp4 * zdenom  ! microzooplankton
 
 
-         zgrazpf   = zgrazp   * nfe / ( phy + rtrn)  ! 
+         zgrazpf   = zgrazp   * nfe / ( phy + rtrn)  !a
          zgrazsf   = zgrazd   * dfe / ( dia + rtrn)  ! 
          zgrazpof  = zgrazpoc * sfe / ( poc + rtrn)
 
-         ! Jorn: compute specific loss rates for prey carbon, and apply those to prey iron too
-         !zgrazpf   = zgrazp    * nfe / (phy + rtrn)   ! Jorn: ingestion of nanophytoplankton Fe
-         !zgrazpof  = zgrazpoc  * sfe / (poc + rtrn)   ! Jorn: ingestion of POFe
-         !zgrazsf   = zgrazd    * dfe / (dia + rtrn)   ! Jorn: ingestion of diatom Fe
+         _SET_DIAGNOSTIC_(self%id_zgrazpof_diag, zgrazpof/xstep)
 
          ! Flux feeding on GOC
          ! ----------------------------------
@@ -305,9 +330,11 @@ contains
          &           * (1._rk - nitrfac)
          zgrazfffp = zgrazffep * sfe / (poc + rtrn)
          !
-         zgraztotc = zgrazp + zgrazd + zgrazz + zgrazpoc + zgrazffep + zgrazffeg   ! Jorn: this seems to be potential ingestion, since zgrazffep and zgrazffeg will later be scaled with proportion of filter feeders, zproport
-         ! Compute the proportion of filter feeders
-         ! Mokrane: get gdepw , hmld and heup_01 from optics (coupling) ??? Ask Jorn
+         zgraztotc = zgrazp + zgrazd  + zgrazpoc & ! Jorn: this seems to be potential ingestion, since zgrazffep and zgrazffeg will later be scaled with proportion of filter feeders, zproport
+                 &   + zgrazz + zgrazffep + zgrazffeg   ! Mokrane: this term only for meso (zgrazz = zgrazffep = zgrazffeg = 0 for micro)
+      
+         !********** Mokrane: This part concerns only Mesozoo, nothing will be changed for microzoo ************************************************************
+
          _GET_SURFACE_(self%id_hmld, hmld)
          _GET_SURFACE_(self%id_heup_01, heup_01)
          _GET_(self%id_gdepw_n, gdepw_n)
@@ -315,22 +342,15 @@ contains
          IF( gdepw_n > MAX(hmld , heup_01 ) ) THEN
               zproport  = (zgrazffep + zgrazffeg)/(rtrn + zgraztotc) ! for microzoo: zproport = 0 because zgrazffep=0 and zgrazffeg=0
          ENDIF
+         _SET_DIAGNOSTIC_(self%id_zproport_diag, zproport)
 
 
-
-
-         !zproport  = (zgrazffep + zgrazffeg)/(rtrn + zgraztotc)
-         ! Compute fractionation of aggregates. It is assumed that
-         ! diatoms based aggregates are more prone to fractionation
-         ! since they are more porous (marine snow instead of fecal pellets)
          zratio    = gsi / ( goc + rtrn )
          zratio2   = zratio * zratio
          zfrac     = zproport * self%grazflux  * xstep * wsgoc      &
          &          * goc * c          &
-         &          * ( 0.4_rk + 3.6_rk * zratio2 / ( 1._rk**2 + zratio2 ) )
-         zfracfe   = zfrac * bfe / (goc + rtrn)
-
-         ! Jorn: scale potential ingestion due to flux feeding with the proprotion of predators that is filter-feeding
+         &          * ( 0.4_rk + 3.6_rk * zratio2 / ( 1._rk**2 + zratio2 ) )  ! (zfrac=0 for microzoo)
+         zfracfe   = zfrac * bfe / (goc + rtrn)                               ! (zfracfe=0 for mesozoo)
 
 
          zgrazffep = zproport * zgrazffep ! for micro: zgrazffep=0
@@ -348,12 +368,20 @@ contains
          zgrazpf   = (1.0 - zproport) * zgrazpf
          zgrazpof  = (1.0 - zproport) * zgrazpof
 
-         zgraztotc = zgrazp  + zgrazd  + zgrazpoc + zgrazz              + zgrazffep + zgrazffeg    ! Jorn: total ingestion of carbon
-         zgraztotf = zgrazpf + zgrazsf + zgrazpof + zgrazz * self%feratn + zgrazfffp + zgrazfffg    ! Jorn: total ingestion of iron, note use of ferat assumes microzoo prey and its predator have same Fe : C
-         zgraztotn = zgrazp * quotan + zgrazd * quotad + zgrazpoc + zgrazz + zgrazffep + zgrazffeg ! Jorn: total ingestion of nitrogen, already expressed in carbon units (i.e. relative to rno3)
+
+         !*********************************************************************************************************************************************************
+
+         zgraztotc = zgrazp  + zgrazd  + zgrazpoc &
+                 &   + zgrazz + zgrazffep + zgrazffeg    ! Mokrane: this term = 0 for micro
+         zgraztotf = zgrazpf + zgrazsf + zgrazpof &
+                 &   + zgrazz * self%feratn   + zgrazfffp + zgrazfffg    ! Mokrane: this term = 0 for micro
+         zgraztotn = zgrazp * quotan + zgrazd * quotad + zgrazpoc &
+                 &   + zgrazz  + zgrazffep + zgrazffeg ! Mokrane: this term = 0 for micro
+
+         _SET_DIAGNOSTIC_(self%id_quotan_diag, quotan)
 
          ! Grazing by microzooplankton
-         !_SET_DIAGNOSTIC_(self%id_zgrazing, zgraztotc * 1e3_rk)
+         _SET_DIAGNOSTIC_(self%id_zgrazing, zgraztotc * 1e3_rk)
 
          ! Microzooplankton efficiency.
          ! We adopt a formulation proposed by Mitra et al. (2007)
@@ -363,33 +391,50 @@ contains
          ! GGE can also be decreased when food quantity is high, zepsherf (Montagnes and
          ! Fulton, 2012)
          ! -----------------------------------------------------------------------------
-         zgrasrat  = ( zgraztotf + rtrn ) / ( zgraztotc + rtrn )  ! Jorn: Fe : C ratio in ingested prey
-         zgrasratn = ( zgraztotn + rtrn ) / ( zgraztotc + rtrn )  ! Jorn: N : C ratio in ingested prey, but N already expressed in C units
+         zgrasrat  = ( zgraztotf + rtrn ) / ( zgraztotc + rtrn  )  ! Jorn: Fe : C ratio in ingested prey
+         zgrasratn = ( zgraztotn + rtrn ) / ( zgraztotc + rtrn  )  ! Jorn: N : C ratio in ingested prey, but N already expressed in C units
          zepshert  =  MIN( 1._rk, zgrasratn, zgrasrat / self%ferat)  ! Jorn: Eq 27a, maximum rate of biomass production, derived from incoming C, N, Fe
          zbeta     = MAX(0._rk, (self%epsher - self%epshermin) )
          zepsherf  = self%epshermin + zbeta / ( 1.0_rk + 0.04E6_rk * 12._rk * zfood * zbeta )
          zepsherq  = 0.5_rk + (1.0_rk - 0.5_rk) * zepshert * ( 1.0_rk + 1.0_rk ) / ( zepshert + 1.0_rk )
          zepsherv  = zepsherf * zepshert * zepsherq   ! Jorn: gross growth efficiency
 
+         _SET_DIAGNOSTIC_(self%id_zgraztotf_diag , zgraztotf/xstep)
+         _SET_DIAGNOSTIC_(self%id_zgraztotc_diag , zgraztotc/xstep)
+         _SET_DIAGNOSTIC_(self%id_zgraztotn_diag , zgraztotn/xstep)
+         _SET_DIAGNOSTIC_(self%id_zgrasrat_diag, zgrasrat)
+         _SET_DIAGNOSTIC_(self%id_zgrasratn_diag, zgrasratn)
+         _SET_DIAGNOSTIC_(self%id_zepshert_diag, zepshert)
+         _SET_DIAGNOSTIC_(self%id_zepsherv_diag, zepsherv)
+         _SET_DIAGNOSTIC_(self%id_zepsherf_diag, zepsherf)
+         _SET_DIAGNOSTIC_(self%id_zepsherq_diag, zepsherq)
+         _SET_DIAGNOSTIC_(self%id_zbeta_diag, zbeta)
+
+!****************************************************************************************************************************************
          zmortz = ztortz + zrespz
          zmortzgoc = (1._rk - self%xdismort) * ztortz + zrespz
 
-
-         _ADD_SOURCE_(self%id_c, - zmortz + zepsherv * zgraztotc ) !
-
-         _ADD_SOURCE_(self%id_dia, - zgrazd)
-         _SET_DIAGNOSTIC_(self%id_zgrazing, zgrazd/xstep)
+         _ADD_SOURCE_(self%id_c, - zmortz + zepsherv * zgraztotc )
          _ADD_SOURCE_(self%id_zoo, - zgrazz)
+         !---------------------------------------------------------
          _ADD_SOURCE_(self%id_phy, - zgrazp)
+         _ADD_SOURCE_(self%id_dia, - zgrazd)
+         _SET_DIAGNOSTIC_(self%id_zgrazd_diag, zgrazd/xstep)
          _SET_DIAGNOSTIC_(self%id_zgrazp_diag, zgrazp/xstep)
          _SET_DIAGNOSTIC_(self%id_zgrazpoc_diag, zgrazpoc/xstep)
          _ADD_SOURCE_(self%id_nch, - zgrazp  * nch / (phy + rtrn))
          _ADD_SOURCE_(self%id_dch, - zgrazd * dch / (dia + rtrn))
          _ADD_SOURCE_(self%id_dsi, - zgrazd * dsi / (dia + rtrn))
-          !zgrabsi       = zgrazd * dsi / ( dia + rtrn ) ! zgrabsi to be declared
+         !----------Mokrane --------
+
+         _ADD_SOURCE_(self%id_gsi, + zgrazd * dsi / (dia + rtrn))
+
+         !-------------------------------
+         !zgrabsi       = zgrazd * dsi / ( dia + rtrn ) ! zgrabsi to be declared
          _ADD_SOURCE_(self%id_nfe, - zgrazpf)
          _ADD_SOURCE_(self%id_dfe, - zgrazsf)
          _ADD_SOURCE_(self%id_poc, - zgrazpoc - zgrazffep + zfrac)
+         !------------------------------------------------------------------
          _ADD_SOURCE_(self%id_conspoc, - zgrazpoc - zgrazffep)
          _ADD_SOURCE_(self%id_prodpoc, + zfrac)
          _ADD_SOURCE_(self%id_goc,            - zgrazffeg - zfrac)
@@ -399,47 +444,54 @@ contains
          zfracal = cal / (goc + rtrn )
          zgrazcal = zgrazffeg * (1._rk - self%part) * zfracal ! for microzoo: zgrazcal = 0 because zgrazffeg = 0
          zprcaca = xfracal * zgrazp
-         !prodcal(ji,jj,jk) = prodcal(ji,jj,jk) + zprcaca  ! prodcal=prodcal(nanophy)+prodcal(microzoo)+prodcal(mesozoo)
          zprcaca = self%part * zprcaca
 
+!         zgrafer   = zgraztotc * MAX( 0._rk , ( 1._rk - self%unass ) * zgrasrat - self%ferat * zepsherv ) &
+         zgrafer   = ( 1._rk - self%unass ) * zgraztotf - self%ferat * zepsherv * zgraztotc &  ! Jorn: total dissolved Fe waste! (organic + inorganic). TODO: revert to original eq above? non-conservative!
+         &         + self%ferat * self%xdismort * ztortz * (1._rk - self%phlim)! Jorn: Eq30b. this line for mesozoo only , ztortz is quadratic mortality
+
          zgrarem   = zgraztotc * ( 1._rk - zepsherv - self%unass ) &   ! Jorn: total dissolved C/N/P waste (organic + inorganic)
-         &         + self%xdismort * ztortz ! Jorn: Eq30b. this line for mesozoo only (xdismort=0 otherwise),
-                 
+                 &         + self%xdismort * ztortz * (1._rk - self%phlim) ! Jorn: Eq30b. this line for mesozoo only (1 - phlim = 0),
+
+         zgrapoc  = zgraztotc * self%unass &
+                 &  + zmortzgoc * (1._rk - self%phlim)  ! Mokrane: This line for mesozoo only
+
+         zgrapof = (zgraztotf * self%unass + self%ferat * zmortzgoc)  ! Mokrane: This line for mesozoo only
+
          zgrarsig  = zgrarem * self%sigma
 
+
+         _ADD_SOURCE_(self%id_po4, zgrarsig)
+         _ADD_SOURCE_(self%id_nh4, zgrarsig)
+         _ADD_SOURCE_(self%id_doc, zgrarem - zgrarsig)
+
+         _ADD_SOURCE_(self%id_oxy, - o2ut * zgrarsig)
+         _ADD_SOURCE_(self%id_fer, + zgrafer)
+         _SET_DIAGNOSTIC_(self%id_zfezoo, zgrafer * 1e12_rk)
+
+         _ADD_SOURCE_(self%id_poc, + (zgrapoc + zmortz) * self%phlim)
+         _ADD_SOURCE_(self%id_goc, + zgrapoc * (1._rk - self%phlim))
+
+         _ADD_SOURCE_(self%id_sfe, + (zgraztotf * self%unass + self%ferat * zmortz) * self%phlim)
+         _ADD_SOURCE_(self%id_bfe, + zgrapof *  (1._rk-self%phlim) ) ! only for mesozoo
+           
          _ADD_SOURCE_(self%id_dic, + zgrazcal - zprcaca + zgrarsig)
          _ADD_SOURCE_(self%id_tal, rno3 * zgrarsig  + 2._rk * (zgrazcal - zprcaca))
          _ADD_SOURCE_(self%id_cal, - zgrazcal + zprcaca)
 
-
-
-!         zgrafer   = zgraztotc * MAX( 0._rk , ( 1._rk - self%unass ) * zgrasrat - self%ferat * zepsherv )
-         zgrafer   = ( 1._rk - self%unass ) * zgraztotf - self%ferat * zepsherv * zgraztotc &  ! Jorn: total dissolved Fe waste (organic + inorganic). TODO: revert to original eq above? non-conservative!
-         &         + self%ferat * self%xdismort * ztortz ! Jorn: Eq30b. this line for mesozoo only (xdismort=0 otherwise), ztortz is quadratic mortality
-
-         !  Update of the TRA arrays
-         !  ------------------------
-         !zgrarsig  = zgrarem * self%sigma
-         _ADD_SOURCE_(self%id_po4, zgrarsig)
-         _ADD_SOURCE_(self%id_nh4, zgrarsig)
-         _ADD_SOURCE_(self%id_doc, zgrarem - zgrarsig)
-         !
-         !IF( ln_ligand ) THEN
-         !   tra(ji,jj,jk,jplgw) = tra(ji,jj,jk,jplgw) + (zgrarem - zgrarsig) * ldocz
-         !   zzligprod(ji,jj,jk) = (zgrarem - zgrarsig) * ldocz
-         !ENDIF
-         !
-         _ADD_SOURCE_(self%id_oxy, - o2ut * zgrarsig)
-         _ADD_SOURCE_(self%id_fer, + zgrafer)
-         _SET_DIAGNOSTIC_(self%id_zfezoo, zgrafer * 1e12_rk)
-         !prodpoc(ji,jj,jk)   = prodpoc(ji,jj,jk) + zgrapoc
+!*****************************************************************************************************************
 
 
          ! Particulate waste from feeding and mortality
-         _ADD_SOURCE_(self%id_poc_waste, + zgraztotc * self%unass + zmortzgoc)
-         _ADD_SOURCE_(self%id_pos_waste, + zgrazd * dsi / (dia + rtrn))
-         _ADD_SOURCE_(self%id_pof_waste, + zgraztotf * self%unass + self%ferat * zmortzgoc)
-         _ADD_SOURCE_(self%id_poc_waste_prod, + zgraztotc * self%unass + zmortzgoc)
+         !_ADD_SOURCE_(self%id_poc_waste, + zgrapoc)
+
+         !_ADD_SOURCE_(self%id_pos_waste, + zgrazd * dsi / (dia + rtrn))
+         !_ADD_SOURCE_(self%id_pof_waste, + zgrapof ) ! * (1._rk-self%phlim) ) ! Mokrane
+
+         !_ADD_SOURCE_(self%id_poc_waste_prod, + zgraztotc * self%unass + zmortzgoc)
+         !_ADD_SOURCE_(self%id_poc_waste_prod,+ zgrapoc)
+         _ADD_SOURCE_(self%id_prodpoc , + (zgrapoc + zmortz) * self%phlim)
+         _ADD_SOURCE_(self%id_prodgoc , +  zgrapoc * (1._rk - self%phlim))
 
          _SET_DIAGNOSTIC_(self%id_zfrac, + zfrac * 1e3_rk)
          !

@@ -45,6 +45,7 @@ contains
       call self%register_dependency(self%id_fr_i, standard_variables%ice_area_fraction)
       call self%register_dependency(self%id_gdepw_n, standard_variables%depth)
       call self%register_dependency(self%id_hmld, mixed_layer_thickness_defined_by_vertical_tracer_diffusivity)
+      !call self%register_dependency(self%id_hmld,standard_variables%mixed_layer_thickness_defined_by_vertical_tracer_diffusivity)
    end subroutine initialize
 
    subroutine do(self, _ARGUMENTS_DO_)

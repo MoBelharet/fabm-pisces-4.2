@@ -15,8 +15,9 @@ module pisces_sediment
       type (type_dependency_id)                 :: id_zomegaca, id_nitrfac
       type (type_bottom_diagnostic_variable_id) :: id_bc, id_bsi, id_bcal, id_bfe, id_ironsed
       real(rk) :: sedsilfrac = 0.03_rk
-      real(rk) :: sedcalfrac = 0.6_rk
+      real(rk) :: sedcalfrac = 0.99_rk
       real(rk) :: sedfeinput
+      logical :: ln_ironsed
    contains
       procedure :: initialize
       procedure :: do_bottom
@@ -31,6 +32,7 @@ contains
       call self%register_implemented_routines((/source_do_bottom/))
 
       call self%get_parameter(self%sedfeinput, 'sedfeinput', 'mol Fe L-1 d-1 m', 'iron flux from the sediments', default=2.e-9_rk)
+      call self%get_parameter(self%ln_ironsed, 'ln_ironsed', '', 'variable iron input from sediment', default=.true.)
 
       call self%register_diagnostic_variable(self%id_SedCal, 'SedCal', 'mol m-2 s-1',    'calcite burial')
       call self%register_diagnostic_variable(self%id_SedSi,  'SedSi',  'mol Si m-2 s-1', 'silica burial')
@@ -113,7 +115,6 @@ contains
          !
          excess = 1._rk - zomegaca
          zfactcal = MAX(-0.1, MIN( excess, 0.2 ))
-         !zfactcal = MIN( 1., 1.3 * ( 0.2 - zfactcal ) / ( 0.4 - zfactcal ) )   ! Jorn: Eq 91
          zfactcal = 0.3_rk + 0.7_rk * MIN( 1._rk, (0.1_rk + zfactcal) / ( 0.5_rk - zfactcal ) )
          zrivalk  = self%sedcalfrac * zfactcal
          _ADD_BOTTOM_FLUX_(self%id_tal, + zcaloss * zrivalk * 2.0)
@@ -126,8 +127,11 @@ contains
          zdenitide = -0.9543 + 0.7662 * LOG( zexpide ) - 0.235 * LOG( zexpide )**2  ! Eq 85b
          ironsed = zcmask * MIN( 1., EXP( zdenitide ) / 0.5 )                       ! Eq 85c
          ironsed = self%sedfeinput * ironsed * r1_rday
-         _ADD_BOTTOM_FLUX_(self%id_fer, ironsed)
-         _SET_BOTTOM_DIAGNOSTIC_(self%id_ironsed, ironsed * 1.e+3_rk)
+
+         IF(self%ln_ironsed) THEN
+          _ADD_BOTTOM_FLUX_(self%id_fer, ironsed)
+          _SET_BOTTOM_DIAGNOSTIC_(self%id_ironsed, ironsed * 1.e+3_rk)
+         ENDIF
 
          zrivno3 = 1. - zbureff
          zwstpoc = cflux * 1E-6_rk

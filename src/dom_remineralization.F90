@@ -67,6 +67,7 @@ contains
       call self%register_dependency(self%id_heup, 'heup', 'm', 'euphotic depth')
       call self%register_dependency(self%id_heup_01, 'heup_01', 'm', 'depth where daily mean PAR equals 0.5 W m-2')
       call self%register_dependency(self%id_hmld, mixed_layer_thickness_defined_by_vertical_tracer_diffusivity)
+      !call self%register_dependency(self%id_hmld, standard_variables%mixed_layer_thickness_defined_by_vertical_tracer_diffusivity)
       call self%register_dependency(self%id_zoo, 'zoo', 'mol C L-1', 'microzooplankton')
       call self%register_dependency(self%id_mes, 'mes', 'mol C L-1', 'mesozooplankton')
       call self%register_dependency(self%id_tem, standard_variables%temperature)
@@ -171,7 +172,8 @@ contains
          zdepmin = MIN( 1._rk, zdep / gdept_n )
          zdepprod = zdepmin**0.273_rk
          zdepeff  = 0.3_rk * zdepmin**0.6_rk
-         tgfunc = EXP( 0.063913_rk * tem )  ! Jorn: Eq 4a in PISCES-v2 paper, NB EXP(0.063913) = 1.066 = b_P
+         !tgfunc = EXP( 0.063913_rk * tem )  ! Jorn: Eq 4a in PISCES-v2 paper, NB EXP(0.063913) = 1.066 = b_P
+         tgfunc = EXP( 0.0631_rk * tem ) 
 
          ! Bacterial uptake of iron. No iron is available in DOC. So
          ! Bacteries are obliged to take up iron from the water. Some
@@ -201,6 +203,7 @@ contains
       call self%register_dependency(self%id_gdept_n, standard_variables%depth)
       call self%register_dependency(self%id_heup, 'heup', 'm', 'euphotic depth')
       call self%register_dependency(self%id_hmld, mixed_layer_thickness_defined_by_vertical_tracer_diffusivity)
+      !call self%register_dependency(self%id_hmld, standard_variables%mixed_layer_thickness_defined_by_vertical_tracer_diffusivity)
       call self%register_dependency(self%id_zoo, 'zoo', 'mol C L-1', 'microzooplankton')
       call self%register_dependency(self%id_mes, 'mes', 'mol C L-1', 'mesozooplankton')
    end subroutine

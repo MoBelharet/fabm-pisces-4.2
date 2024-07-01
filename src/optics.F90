@@ -58,10 +58,11 @@ contains
       call self%register_dependency(self%id_e3t_n, standard_variables%cell_thickness)
       call self%register_dependency(self%id_qsr, standard_variables%surface_downwelling_shortwave_flux)
       if (self%ln_varpar) call self%register_dependency(self%id_par_varsw, 'par_varsw', '1', 'PAR : SWR ratio')
-      !call self%register_dependency(self%id_qsr_mean, temporal_mean(self%id_qsr, period=86400._rk,resolution=3600._rk))
-      call self%register_dependency(self%id_qsr_mean,standard_variables%surface_mean_downwelling_shortwave_flux)
+      call self%register_dependency(self%id_qsr_mean, temporal_mean(self%id_qsr, period=86400._rk,resolution=3600._rk))
+      !call self%register_dependency(self%id_qsr_mean,standard_variables%surface_mean_downwelling_shortwave_flux)
       call self%register_dependency(self%id_fr_i, standard_variables%ice_area_fraction)
       call self%register_dependency(self%id_hmld, mixed_layer_thickness_defined_by_vertical_tracer_diffusivity)
+      !call self%register_dependency(self%id_hmld, standard_variables%mixed_layer_thickness_defined_by_vertical_tracer_diffusivity)
 
       call self%register_diagnostic_variable(self%id_pe1, 'pe1', 'W m-2', 'daily mean PAR in blue band [in ice-free water]', source=source_do_column)
       call self%register_diagnostic_variable(self%id_pe2, 'pe2', 'W m-2', 'daily mean PAR in green band [in ice-free water]', source=source_do_column)
@@ -181,9 +182,7 @@ contains
 
          gdepw_n = gdepw_n + e3t_n
          IF (first .or. etot_ndcy >= pqsr100) heup    = gdepw_n  ! Euphotic layer depth
-         IF (first .or. etot_ndcy >= 0.10)    heup_01 = gdepw_n  ! Euphotic layer depth (light level definition)
-
-         IF (first .or. etot_ndcy >= 0.10) gdepw_n_diag = gdepw_n
+         IF (first .or. etot_ndcy >= 0.1)    heup_01 = gdepw_n  ! Euphotic layer depth (light level definition)
 
 
          IF (gdepw_n <= hmld) THEN
@@ -206,11 +205,11 @@ contains
       heup    = MIN( 300._rk, heup    )
       heup_01 = MIN( 300._rk, heup_01 )
 
+
       _SET_SURFACE_DIAGNOSTIC_(self%id_heup, heup)
       _SET_SURFACE_DIAGNOSTIC_(self%id_heup_01, heup_01)
       _SET_SURFACE_DIAGNOSTIC_(self%id_emoy, zetmp1 / (zdepmoy + rtrn))
       _SET_SURFACE_DIAGNOSTIC_(self%id_zpar, zetmp2 / (zdepmoy + rtrn))
-      _SET_SURFACE_DIAGNOSTIC_(self%id_gdepw_diag,gdepw_n_diag) ! Mokrane
    end subroutine
 
    ! From NEMO, trc_oce.F90

@@ -36,7 +36,7 @@ module pisces_pom
 
       type (type_surface_dependency_id) :: id_hmld
       type (type_dependency_id) :: id_tem, id_gdept_n, id_cons, id_prod
-      type (type_diagnostic_variable_id) :: id_zremi
+      type (type_diagnostic_variable_id) :: id_zremi, id_ztremint_diag, id_zpoc_diag, id_prod_diag, id_expz_diag
       type (type_diagnostic_variable_id), allocatable :: id_alpha(:)
       logical :: mlvar
       integer :: jcpoc
@@ -73,18 +73,19 @@ contains
       call self%get_parameter(self%wsscale, 'wsscale', 'm', 'length scale of sinking', default=5000._rk)
       call self%register_diagnostic_variable(self%id_ws, 'ws', 'm d-1', 'sinking velocity', missing_value=self%ws, source=source_constant, output=output_none)
 
-      call self%register_state_variable(self%id_c, 'c', 'mol C L-1', 'carbon concentration', initial_value=5.23e-8_rk, vertical_movement=-self%ws * r1_rday, minimum=0.0_rk)
+
+      call self%register_state_variable(self%id_c, 'c', 'mol C L-1', 'carbon concentration', initial_value=5.23e-8_rk, vertical_movement= -self%ws * r1_rday, minimum=0.0_rk) !-self%ws
       call self%add_to_aggregate_variable(standard_variables%total_carbon, self%id_c, scale_factor=1e6_rk)
       call self%add_to_aggregate_variable(standard_variables%total_nitrogen, self%id_c, scale_factor=rno3 * 1e6_rk)
       call self%add_to_aggregate_variable(standard_variables%total_phosphorus, self%id_c, scale_factor=po4r * 1e6_rk)
-      call self%register_state_variable(self%id_fe, 'fe', 'mol Fe L-1', 'iron concentration', initial_value=9.84e-13_rk, vertical_movement=-self%ws * r1_rday, minimum=0.0_rk)
+      call self%register_state_variable(self%id_fe, 'fe', 'mol Fe L-1', 'iron concentration', initial_value=9.84e-13_rk, vertical_movement= -self%ws * r1_rday, minimum=0.0_rk)
       call self%add_to_aggregate_variable(standard_variables%total_iron, self%id_fe, scale_factor=1e9_rk)
 
       self%id_c%sms%link%target%source = source_do_column
       self%id_fe%sms%link%target%source = source_do_column
 
       if (has_calcite) then
-         call self%register_state_variable(self%id_cal, 'cal', 'mol C L-1', 'calcite concentration', initial_value=1.04e-8_rk, vertical_movement=-self%ws * r1_rday, minimum=0.0_rk)
+         call self%register_state_variable(self%id_cal, 'cal', 'mol C L-1', 'calcite concentration', initial_value=1.04e-8_rk, vertical_movement= -self%ws * r1_rday, minimum=0.0_rk)
          call self%add_to_aggregate_variable(standard_variables%total_carbon, self%id_cal, scale_factor=1e6_rk)
 
          allocate(calcite_dissolution)
@@ -93,7 +94,7 @@ contains
       end if
 
       if (has_silicon) then
-         call self%register_state_variable(self%id_si, 'si', 'mol Si L-1', 'silicon concentration', initial_value=5.e-14_rk, vertical_movement=-self%ws * r1_rday, minimum=0.0_rk)
+         call self%register_state_variable(self%id_si, 'si', 'mol Si L-1', 'silicon concentration', initial_value=5.e-14_rk, vertical_movement= -self%ws * r1_rday, minimum=0.0_rk)
          call self%add_to_aggregate_variable(standard_variables%total_silicate, self%id_si, scale_factor=1e6_rk)
 
          allocate(silica_dissolution)
@@ -128,10 +129,15 @@ contains
       call self%get_parameter(self%rshape, 'rshape', '-', 'shape of the gamma function', default=1._rk)
 
       call self%register_diagnostic_variable(self%id_zremi, 'zremi', 's-1', 'remineralization rate', source=source_do_column)
+      call self%register_diagnostic_variable(self%id_ztremint_diag, 'ztremint_diag', '-', 'diagnostic of ztremint', source=source_do_column)
+      call self%register_diagnostic_variable(self%id_zpoc_diag, 'zpoc_diag', '-', 'diagnostic of zpoc', source=source_do_column)
+      call self%register_diagnostic_variable(self%id_prod_diag, 'prod_diag', '-', 'diagnostic of prod', source=source_do_column)
+      call self%register_diagnostic_variable(self%id_expz_diag, 'expz_diag', '-', 'diagnostic of expz', source=source_do_column)
 
       call self%register_dependency(self%id_e3t_n, standard_variables%cell_thickness)
       call self%register_dependency(self%id_gdept_n, standard_variables%depth)
       call self%register_dependency(self%id_hmld, mixed_layer_thickness_defined_by_vertical_tracer_diffusivity)
+      !call self%register_dependency(self%id_hmld, standard_variables%mixed_layer_thickness_defined_by_vertical_tracer_diffusivity)
       call self%register_dependency(self%id_tem, standard_variables%temperature)
 
       ALLOCATE( self%alphan(self%jcpoc) , self%reminp(self%jcpoc) )
@@ -223,7 +229,7 @@ contains
 
       _BOTTOM_LOOP_BEGIN_
          _GET_(self%id_e3t_n, e3t_n)
-         ws = min(0.99_rk * e3t_n / maxdt, self%ws * xstep)   ! Jorn: protect against CFL violation as in p4zsed.F90
+         ws = self%ws * xstep !min(0.99_rk * e3t_n / maxdt, self%ws * xstep)   ! Jorn: protect against CFL violation as in p4zsed.F90
          _GET_(self%id_c, c)
          _ADD_BOTTOM_FLUX_(self%id_c, -ws * c)
          _ADD_BOTTOM_SOURCE_(self%id_bc, ws * c * 1.e6_rk)
@@ -275,8 +281,9 @@ contains
                _GET_(self%id_prod, prod)
                _GET_(self%id_tem, tem)
                _GET_(self%id_c, c)
-               ws = self%ws
-               tgfunc = EXP( 0.063913_rk * tem )  ! Jorn: Eq 4a in PISCES-v2 paper, NB EXP(0.063913) = 1.066 = b_P
+               ws = 0._rk !self%ws
+               !tgfunc = EXP( 0.063913_rk * tem )  ! Jorn: Eq 4a in PISCES-v2 paper, NB EXP(0.063913) = 1.066 = b_P
+               tgfunc = EXP( 0.0631_rk * tem )
                totprod = totprod + prod * e3t_n * rday
                totthick = totthick + e3t_n * tgfunc
                totcons = totcons - cons * e3t_n * rday / ( c + rtrn )   ! Jorn: this accumulates a depth-integrated specific loss rate. But should that not be computed from depth-integrated cons divided by depth-integrated poc?
@@ -312,15 +319,20 @@ contains
          _GET_(self%id_cons, cons)
          _GET_(self%id_prod, prod)
 
+         _SET_DIAGNOSTIC_(self%id_prod_diag, prod/xstep)
+
          ! Jorn: production per lability class
          DO jn = 1, self%jcpoc
             _GET_(self%id_prodn(jn), prodn(jn))
             prodn(jn) = prodn(jn) + prod * self%alphan(jn)
          END DO
 
-         tgfunc = EXP( 0.063913_rk * tem )  ! Jorn: Eq 4a in PISCES-v2 paper, NB EXP(0.063913) = 1.066 = b_P
+         !tgfunc = EXP( 0.063913_rk * tem )  ! Jorn: Eq 4a in PISCES-v2 paper, NB EXP(0.063913) = 1.066 = b_P
+         tgfunc = EXP( 0.0631_rk * tem )
          zsizek = e3t_n / 2. / (ws + rtrn) * tgfunc
          expz = exp( -self%reminp * zsizek )
+
+         _SET_DIAGNOSTIC_(self%id_expz_diag, zsizek)
 
          !
          ! In the case of GOC, lability is constant in the mixed layer
@@ -380,9 +392,13 @@ contains
                   &   - expz1(jn) ) * expz(jn) + prodn(jn) &  ! Jorn: same for POC, except that GOC->POC conversion [zorem3*alphag] is added to prodgoc*alphan
                   &   / tgfunc * ( 1. - expz(jn) ) ) * rday / self%reminp(jn)         ! Jorn: dropped division by rfact2 as prodn is already per second (unlike in pisces, where it is premultiplied by time step rfact2)
                   alphat = alphat + alpha(jn)
+
                   remint = remint + alpha(jn) * self%reminp(jn)
+
                END DO
             ENDIF
+
+            _SET_DIAGNOSTIC_(self%id_zpoc_diag, zpoc)
             !
             DO jn = 1, self%jcpoc
                ! The contribution of each lability class at the current
@@ -391,9 +407,14 @@ contains
             END DO
             ! Computation of the mean remineralisation rate
             ztremint =  MAX(0., remint / ( alphat + rtrn) )
+
+
          ENDIF
+                 
+
          zremi = MIN( self%xremip , ztremint )
-         _SET_DIAGNOSTIC_(self%id_zremi, zremi * xstep * tgfunc)
+         _SET_DIAGNOSTIC_(self%id_zremi, zremi) ! * xstep * tgfunc)
+         _SET_DIAGNOSTIC_(self%id_ztremint_diag, ztremint)
 
          DO jn = 1, self%jcpoc
             _SET_DIAGNOSTIC_(self%id_alpha(jn), alpha(jn))
@@ -401,6 +422,8 @@ contains
 
          zorem = zremi * xstep * tgfunc * c
          zofer = zremi * xstep * tgfunc * fe
+
+
          _ADD_SOURCE_(self%id_c,   - (1._rk + self%solgoc) * zorem) 
          _ADD_SOURCE_(self%id_fe,  - (1._rk + self%solgoc) * zofer)
          _ADD_SOURCE_(self%id_doc, + zorem)

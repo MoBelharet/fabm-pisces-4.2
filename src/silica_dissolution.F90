@@ -12,7 +12,7 @@ module pisces_silica_dissolution
 
    type, extends(type_base_model) :: type_pisces_silica_dissolution
       type (type_state_variable_id)      :: id_gsi, id_sil
-      type (type_diagnostic_variable_id) :: id_remin, id_zsiremin_diag, id_zfacsib_diag, id_zfacsi_diag , id_gdept_n_diag
+      type (type_diagnostic_variable_id) :: id_remin, id_zsiremin_diag, id_zfacsib_diag, id_zfacsi_diag , id_gdept_n_diag,id_zdep_cond
       type (type_surface_diagnostic_variable_id) :: id_zdep_diag
       type (type_dependency_id)          :: id_tem, id_gdept_n, id_ws, id_e3t_n
       type (type_surface_dependency_id)  :: id_hmld, id_heup_01
@@ -35,12 +35,14 @@ contains
       call self%get_parameter(self%xsilab, 'xsilab', '1', 'labile fraction of biogenic silica', default=0.5_rk)
 
       call self%register_diagnostic_variable(self%id_remin, 'remin', 'mol Si L-1 s-1', 'rate', source=source_do_column)
+
       !----- Mokrane ------
       call self%register_diagnostic_variable(self%id_zsiremin_diag, 'zsiremin', '-', 'diagnostic of zsiremin', source=source_do_column)
       call self%register_diagnostic_variable(self%id_zfacsib_diag, 'zfacsib', '-', 'diagnostic of zfacsib', source=source_do_column)
       call self%register_diagnostic_variable(self%id_zfacsi_diag , 'zfacsi', '-', 'diagnostic of zfacsi', source=source_do_column)
       call self%register_diagnostic_variable(self%id_gdept_n_diag, 'gdept_n', '-', 'diagnostic of gdept_n', source=source_do_column)
       call self%register_surface_diagnostic_variable(self%id_zdep_diag, 'zdep', '-', 'diagnostic of zdep', source=source_do_column)
+      call self%register_diagnostic_variable(self%id_zdep_cond, 'zdep_cond', '-', 'zdep condition', source=source_do_column)
       !---------------------
 
       call self%register_state_dependency(self%id_gsi, 'gsi', 'mol Si L-1', 'particulate organic silicon')
@@ -49,6 +51,7 @@ contains
       call self%register_dependency(self%id_gdept_n, standard_variables%depth)
       call self%register_dependency(self%id_heup_01, 'heup_01', 'm', 'depth where daily mean PAR equals 0.5 W m-2')
       call self%register_dependency(self%id_hmld, mixed_layer_thickness_defined_by_vertical_tracer_diffusivity)
+      !call self%register_dependency(self%id_hmld, standard_variables%mixed_layer_thickness_defined_by_vertical_tracer_diffusivity)
       call self%register_dependency(self%id_tem, standard_variables%temperature)    ! Jorn: TODO should be in-situ temperature
       call self%register_dependency(self%id_e3t_n, standard_variables%cell_thickness)
 
@@ -70,6 +73,7 @@ contains
       zdep = MAX( hmld, heup_01 )
       _SET_SURFACE_DIAGNOSTIC_(self%id_zdep_diag, zdep)
 
+
       zfacsi = self%xsilab                           ! Jorn: labile fraction of frustule (1)
       zfacsib = self%xsilab / ( 1.0 - self%xsilab )  ! Jorn: ratio of labile : non-labile fractions of frustule (-)
       _DOWNWARD_LOOP_BEGIN_
@@ -87,16 +91,24 @@ contains
          ! ---------------------------------------------------------
          IF ( gdept_n > zdep ) THEN
             zfacsib = zfacsib * EXP( -0.5 * ( self%xsiremlab - self%xsirem )  &
-            &                   * znusil * e3t_n / ws )
+            &                   * znusil * e3t_n / (ws + rtrn) )
             zfacsi  = zfacsib / ( 1.0 + zfacsib )
             zfacsib = zfacsib * EXP( -0.5 * ( self%xsiremlab - self%xsirem )    &
-            &                   * znusil * e3t_n / ws )
+            &                   * znusil * e3t_n / (ws + rtrn) )
+
+           _SET_DIAGNOSTIC_(self%id_zdep_cond, 1._rk)
+         ELSE
+                 _SET_DIAGNOSTIC_(self%id_zdep_cond, 0._rk)
          ENDIF
          zsiremin = ( self%xsiremlab * zfacsi + self%xsirem * ( 1. - zfacsi ) ) * xstep * znusil
 
          _GET_(self%id_gsi, gsi)
 
          zosil    = zsiremin * gsi
+
+
+         _SET_DIAGNOSTIC_(self%id_zfacsi_diag , ( sio3eq - sil ) / ( sio3eq + rtrn ) )   !zfacsi)
+
          !
          _ADD_SOURCE_(self%id_gsi, - zosil)
          _ADD_SOURCE_(self%id_sil, + zosil)
@@ -104,7 +116,6 @@ contains
 
          _SET_DIAGNOSTIC_(self%id_zsiremin_diag, zsiremin/xstep)
          _SET_DIAGNOSTIC_(self%id_zfacsib_diag , zfacsib)
-         _SET_DIAGNOSTIC_(self%id_zfacsi_diag , zfacsi)
          _SET_DIAGNOSTIC_(self%id_gdept_n_diag, gdept_n)
 
       _DOWNWARD_LOOP_END_

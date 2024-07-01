@@ -12,9 +12,10 @@ module pisces_iron
    type, extends(type_particle_model), public :: type_pisces_iron
       type (type_state_variable_id) :: id_fer, id_sfe, id_bfe
       type (type_dependency_id) :: id_tempis, id_salinprac, id_xdiss, id_doc, id_poc, id_goc, id_cal, id_gsi, id_hi, id_oxy, id_etot, id_gdept_n
-      type (type_dependency_id) :: id_zdust, id_etot_ndcy,id_chemo2, id_consfe3,id_nitrfac, id_no3, id_consfe3_sum
+      type (type_dependency_id) :: id_zdust, id_etot_ndcy,id_chemo2,id_nitrfac, id_no3, id_consfe3_sum
       type (type_surface_dependency_id) :: id_gphit, id_fr_i
       type (type_diagnostic_variable_id) :: id_scav, id_coll, id_Fe3, id_FeL1, id_zTL1,id_xfecolagg, id_plig, id_zfeprecip, id_xcoagfe
+      type (type_diagnostic_variable_id) :: id_zkeq_diag, id_zklight_diag, id_zconsfe_diag, id_za1_diag, id_ztfe_diag
       real(rk) :: ligand, xlam1, xlamdust, kfep, wdust, light, scaveff
    contains
       procedure :: initialize
@@ -32,11 +33,11 @@ contains
 
       call self%register_implemented_routines((/source_do/))
 
-      call self%get_parameter(self%ligand, 'ligand', 'mol L-1', 'total concentration of iron ligands', default=0.7E-9_rk)
+      call self%get_parameter(self%ligand, 'ligand', 'mol L-1', 'total concentration of iron ligands', default=1.E-9_rk)
       call self%get_parameter(self%xlam1, 'xlam1', 'd-1 umol-1 L', 'scavenging rate', default=0.02_rk)
       call self%get_parameter(self%xlamdust, 'xlamdust', 'd-1 mg-1 L', 'scavenging rate of dust', default=150.0_rk)
       call self%get_parameter(self%kfep, 'kfep', 'd-1', 'nanoparticle formation rate constant', default=0.01_rk)
-      call self%get_parameter(self%light, 'light', 'W m-2', 'light limitation parameter for photolysis', default=50._rk)
+      call self%get_parameter(self%light, 'light', 'W m-2', 'light limitation parameter for photolysis', default=30._rk)
       call self%get_parameter(self%scaveff, 'scaveff' , '1' , 'Fraction of scavenged Fe that goes to POFe', default=1._rk)
 
       call self%register_state_dependency(self%id_fer, 'fer', 'mol Fe L-1', 'iron')
@@ -52,6 +53,11 @@ contains
       call self%register_diagnostic_variable(self%id_plig, 'plig', '1','Fraction of ligands')
       call self%register_diagnostic_variable(self%id_zfeprecip, 'zfeprecip','mmolFe L-1 s-1' ,'Precipitation of Fe')
       call self%register_diagnostic_variable(self%id_xcoagfe,'xcoagfe','mol C L-1','coagulation of colloidal iron')
+      call self%register_diagnostic_variable(self%id_zkeq_diag, 'zkeq', '-', 'zkeq in iron.F90') 
+      call self%register_diagnostic_variable(self%id_zklight_diag, 'zklight','-', 'zklight in iron.F90')
+      call self%register_diagnostic_variable(self%id_zconsfe_diag, 'zconsfe', '-', 'zconsfe in iron.F90')
+      call self%register_diagnostic_variable(self%id_za1_diag, 'za1', '-', 'za1 in iron.F90')
+      call self%register_diagnostic_variable(self%id_ztfe_diag, 'ztfe', '-', 'ztfe in iron.F90') 
 
       call self%register_dependency(self%id_doc, 'doc', 'mol C L-1', 'dissolved organic carbon')
       call self%register_dependency(self%id_poc, 'poc', 'mol C L-1', 'small particulate organic carbon')
@@ -80,7 +86,7 @@ contains
       call self%register_dependency(self%id_etot_ndcy, 'etot_ndcy', 'W m-2', 'daily mean PAR')
       call self%register_dependency(self%id_fr_i, standard_variables%ice_area_fraction)
       call self%register_dependency(self%id_chemo2, 'chemo2', 'mol O2 (L atm)-1', 'solubility')
-      !call self%register_dependency(self%id_consfe3_sum, consfe3_sum)
+      call self%register_dependency(self%id_consfe3_sum, consfe3_sum)
 
    end subroutine
 
@@ -113,7 +119,7 @@ contains
          _GET_(self%id_gdept_n, gdept_n)
          _GET_(self%id_zdust, zdust)
          _GET_(self%id_chemo2, chemo2)
-         !_GET_(self%id_consfe3_sum, consfe3)
+         _GET_(self%id_consfe3_sum, consfe3)
          _GET_(self%id_nitrfac, nitrfac)
 
          ztkel = tempis + 273.15_rk
@@ -152,7 +158,8 @@ contains
          ! This model is based on one ligand and Fe' 
          ! Chemistry is supposed to be fast enough to be at equilibrium
          ! ------------------------------------------------------------
-         consfe3 = 0._rk
+         !consfe3 = 0._rk
+
          zTL1  = ztotlig
          zkeq            = fekeq
          zklight         = 4.77E-7 * etot * 0.5 / ( 10**(-6.3) )
@@ -162,6 +169,13 @@ contains
 
          ! Fe' is the root of a 2nd order polynom
          za1 =  1. + zfesatur * zkeq + zklight +  zconsfe - zkeq * fer
+
+
+         _SET_DIAGNOSTIC_(self%id_zkeq_diag, zkeq)
+         _SET_DIAGNOSTIC_(self%id_zklight_diag, zklight)
+         _SET_DIAGNOSTIC_(self%id_zconsfe_diag, zconsfe)
+         _SET_DIAGNOSTIC_(self%id_za1_diag, za1)
+         _SET_DIAGNOSTIC_(self%id_ztfe_diag, ztfe)
           
          zFe3  = ( -1 * za1 + SQRT( za1**2 + 4. * ztfe * zkeq) ) / (2. * zkeq + rtrn ) ! Eq 65
          
@@ -235,8 +249,11 @@ contains
          !
          !
          _ADD_SOURCE_(self%id_fer, - zscave - zaggdfea - zaggdfeb - zfeprecip)
-         _ADD_SOURCE_(self%id_sfe, zscave * self%scaveff * poc / ztrc   + zaggdfea)
-         _ADD_SOURCE_(self%id_bfe, zscave * self%scaveff * poc / ztrc   + zaggdfeb)
+         _ADD_SOURCE_(self%id_sfe, zscave * self%scaveff * poc / ztrc   )
+         _ADD_SOURCE_(self%id_bfe, zscave * self%scaveff * poc / ztrc   )
+
+         _ADD_SOURCE_(self%id_sfe,  + zaggdfea)
+         _ADD_SOURCE_(self%id_bfe,   + zaggdfeb)
 
          ! Precipitated iron is supposed to be permanently lost.
          ! Scavenged iron is supposed to be released back to seawater
@@ -247,8 +264,8 @@ contains
          ! See for instance Tagliabue et al. (2019).
          ! Aggregated FeL is considered as biogenic Fe as it 
          ! probably remains  complexed when the particle is solubilized.
-         _SET_DIAGNOSTIC_(self%id_scav, zscave)
-         _SET_DIAGNOSTIC_(self%id_coll, zaggdfea + zaggdfeb)
+         _SET_DIAGNOSTIC_(self%id_scav, 1.e9 * zscave/xstep)
+         _SET_DIAGNOSTIC_(self%id_coll, 1.e9 * (zaggdfea + zaggdfeb)/xstep)
          !
          !
          !  Define the bioavailable fraction of iron

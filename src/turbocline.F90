@@ -14,6 +14,7 @@ module pisces_turbocline
       type (type_surface_diagnostic_variable_id) :: id_hmld
       type (type_dependency_id)                  :: id_gdept_n, id_avt
       type (type_bottom_dependency_id)           :: id_bdepth
+      !type (type_surface_dependency_id)           :: id_hmld_
       real(rk) :: avt_c, minh
    contains
       procedure :: initialize
@@ -36,21 +37,27 @@ contains
       call self%register_dependency(self%id_gdept_n, standard_variables%depth)
       call self%register_dependency(self%id_bdepth, standard_variables%bottom_depth)
       call self%register_dependency(self%id_avt, type_interior_standard_variable(name='vertical_tracer_diffusivity', units='m2 s-1'))
+      !call self%register_dependency(self%id_hmld_, standard_variables%mixed_layer_thickness_defined_by_vertical_tracer_diffusivity_)
    end subroutine initialize
+
 
    subroutine do_column(self, _ARGUMENTS_DO_COLUMN_)
       class (type_pisces_turbocline), intent(in) :: self
       _DECLARE_ARGUMENTS_DO_COLUMN_
 
-      real(rk) :: avt, gdept_n, h
-
+      real(rk) :: avt, gdept_n, h !, hmld
+       
       _GET_BOTTOM_(self%id_bdepth, h)
       _UPWARD_LOOP_BEGIN_
          _GET_(self%id_avt, avt)
          _GET_(self%id_gdept_n, gdept_n)
          if (avt < self%avt_c .and. gdept_n > self%minh) h = gdept_n
       _UPWARD_LOOP_END_
+      
       _SET_SURFACE_DIAGNOSTIC_(self%id_hmld, h)
+      !_SET_SURFACE_DIAGNOSTIC_(self%id_hmld, 30._rk)
+
+
    end subroutine
 
 end module
