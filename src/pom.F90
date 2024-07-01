@@ -74,7 +74,7 @@ contains
       call self%register_diagnostic_variable(self%id_ws, 'ws', 'm d-1', 'sinking velocity', missing_value=self%ws, source=source_constant, output=output_none)
 
 
-      call self%register_state_variable(self%id_c, 'c', 'mol C L-1', 'carbon concentration', initial_value=5.23e-8_rk, vertical_movement= -self%ws * r1_rday, minimum=0.0_rk) !-self%ws
+      call self%register_state_variable(self%id_c, 'c', 'mol C L-1', 'carbon concentration', initial_value=5.23e-8_rk, vertical_movement= -self%ws * r1_rday, minimum=0.0_rk) 
       call self%add_to_aggregate_variable(standard_variables%total_carbon, self%id_c, scale_factor=1e6_rk)
       call self%add_to_aggregate_variable(standard_variables%total_nitrogen, self%id_c, scale_factor=rno3 * 1e6_rk)
       call self%add_to_aggregate_variable(standard_variables%total_phosphorus, self%id_c, scale_factor=po4r * 1e6_rk)
@@ -229,7 +229,7 @@ contains
 
       _BOTTOM_LOOP_BEGIN_
          _GET_(self%id_e3t_n, e3t_n)
-         ws = self%ws * xstep !min(0.99_rk * e3t_n / maxdt, self%ws * xstep)   ! Jorn: protect against CFL violation as in p4zsed.F90
+         ws = min(0.99_rk * e3t_n / maxdt, self%ws * xstep)   ! Jorn: protect against CFL violation as in p4zsed.F90
          _GET_(self%id_c, c)
          _ADD_BOTTOM_FLUX_(self%id_c, -ws * c)
          _ADD_BOTTOM_SOURCE_(self%id_bc, ws * c * 1.e6_rk)
@@ -281,7 +281,7 @@ contains
                _GET_(self%id_prod, prod)
                _GET_(self%id_tem, tem)
                _GET_(self%id_c, c)
-               ws = 0._rk !self%ws
+               ws = self%ws
                !tgfunc = EXP( 0.063913_rk * tem )  ! Jorn: Eq 4a in PISCES-v2 paper, NB EXP(0.063913) = 1.066 = b_P
                tgfunc = EXP( 0.0631_rk * tem )
                totprod = totprod + prod * e3t_n * rday

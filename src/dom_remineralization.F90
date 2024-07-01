@@ -147,8 +147,8 @@ contains
          ! -----------------------------------------------------
 
          zolimic = zremikc * ( 1._rk- nitrfac ) * doc 
-         zolimi = MAX(0._rk, MIN( ( oxy - rtrn ) / o2ut, zolimic ) )
-         !zolimi = MIN( ( oxy - rtrn ) / o2ut, zolimit )        ! Jorn: Eq 33a
+         zolimi =  MAX(0._rk, MIN( ( oxy - rtrn ) / o2ut, zolimic ) )
+
          ! Ammonification in suboxic waters with denitrification
          ! -------------------------------------------------------
          zammonic = zremikc * nitrfac * doc

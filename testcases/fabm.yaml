@@ -5,6 +5,7 @@ instances:
     parameters:
       ln_varpar: false
       ln_p4z_dcyc: false
+
   no3:
     long_name: nitrate
     model: pisces/tracer
@@ -93,6 +94,7 @@ instances:
       concfer: 1.7e-9
       chlcm: 0.033
       xmort: 1.e-9
+      pislope: 2.0
     coupling:
       no3: no3/c
       nh4: nh4/c
@@ -129,6 +131,7 @@ instances:
       xmort: 1.e-9
       wchl: 0.03
       xsizer: 4.0
+      pislope: 2.0
     coupling:
       no3: no3/c
       nh4: nh4/c
