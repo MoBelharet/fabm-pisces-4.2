@@ -53,7 +53,7 @@ instances:
     long_name: small particulate organic matter
     model: pisces/pom
     parameters:
-      ws: 0 #2
+      ws: 2
       solgoc: 0
       mlvar: true
     initialization:
@@ -69,7 +69,7 @@ instances:
     parameters:
       has_silicon: true
       has_calcite: true
-      ws: 0 #50
+      ws: 50
     initialization:
       c: 1.e-8
       fe: 5.e-14
