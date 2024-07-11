@@ -391,8 +391,8 @@ contains
          ! GGE can also be decreased when food quantity is high, zepsherf (Montagnes and
          ! Fulton, 2012)
          ! -----------------------------------------------------------------------------
-         zgrasrat  = ( zgraztotf + rtrn ) / ( zgraztotc + rtrn  )  ! Jorn: Fe : C ratio in ingested prey
-         zgrasratn = ( zgraztotn + rtrn ) / ( zgraztotc + rtrn  )  ! Jorn: N : C ratio in ingested prey, but N already expressed in C units
+         zgrasrat  = ( zgraztotf + rtrn/1800._rk ) / ( zgraztotc + rtrn/1800._rk  )  ! Jorn: Fe : C ratio in ingested prey
+         zgrasratn = ( zgraztotn + rtrn/1800._rk ) / ( zgraztotc + rtrn/1800._rk  )  ! Jorn: N : C ratio in ingested prey, but N already expressed in C units
          zepshert  =  MIN( 1._rk, zgrasratn, zgrasrat / self%ferat)  ! Jorn: Eq 27a, maximum rate of biomass production, derived from incoming C, N, Fe
          zbeta     = MAX(0._rk, (self%epsher - self%epshermin) )
          zepsherf  = self%epshermin + zbeta / ( 1.0_rk + 0.04E6_rk * 12._rk * zfood * zbeta )
@@ -437,7 +437,7 @@ contains
          !------------------------------------------------------------------
          _ADD_SOURCE_(self%id_conspoc, - zgrazpoc - zgrazffep)
          _ADD_SOURCE_(self%id_prodpoc, + zfrac)
-         _ADD_SOURCE_(self%id_goc,            - zgrazffeg - zfrac)
+         _ADD_SOURCE_(self%id_goc,            - zgrazffeg - zfrac )
          _ADD_SOURCE_(self%id_consgoc,        - zgrazffeg - zfrac)
          _ADD_SOURCE_(self%id_sfe, - zgrazpof - zgrazfffp + zfracfe)
          _ADD_SOURCE_(self%id_bfe,            - zgrazfffg - zfracfe)
@@ -446,8 +446,8 @@ contains
          zprcaca = xfracal * zgrazp
          zprcaca = self%part * zprcaca
 
-!         zgrafer   = zgraztotc * MAX( 0._rk , ( 1._rk - self%unass ) * zgrasrat - self%ferat * zepsherv ) &
-         zgrafer   = ( 1._rk - self%unass ) * zgraztotf - self%ferat * zepsherv * zgraztotc &  ! Jorn: total dissolved Fe waste! (organic + inorganic). TODO: revert to original eq above? non-conservative!
+         zgrafer   = zgraztotc * MAX( 0._rk , ( 1._rk - self%unass ) * zgrasrat   - self%ferat * zepsherv ) &
+!         zgrafer   = ( 1._rk - self%unass ) * zgraztotf - self%ferat * zepsherv * zgraztotc &  ! Jorn: total dissolved Fe waste! (organic + inorganic). TODO: revert to original eq above? non-conservative!
          &         + self%ferat * self%xdismort * ztortz * (1._rk - self%phlim)! Jorn: Eq30b. this line for mesozoo only , ztortz is quadratic mortality
 
          zgrarem   = zgraztotc * ( 1._rk - zepsherv - self%unass ) &   ! Jorn: total dissolved C/N/P waste (organic + inorganic)
@@ -467,6 +467,7 @@ contains
 
          _ADD_SOURCE_(self%id_oxy, - o2ut * zgrarsig)
          _ADD_SOURCE_(self%id_fer, + zgrafer)
+
          _SET_DIAGNOSTIC_(self%id_zfezoo, zgrafer * 1e12_rk)
 
          _ADD_SOURCE_(self%id_poc, + (zgrapoc + zmortz) * self%phlim)
