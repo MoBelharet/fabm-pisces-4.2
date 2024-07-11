@@ -11,12 +11,12 @@ module pisces_shared
    real(rk), parameter :: rno3    =  16._rk / 117._rk
    real(rk), parameter :: po4r    =   1._rk / 117._rk
    real(rk), parameter :: o2nit   =  32._rk / 117._rk
-   real(rk), parameter :: o2ut    = 133._rk / 117._rk
+   real(rk), parameter :: o2ut    = 138._rk / 117._rk
    real(rk), parameter :: rdenit  =  ( ( o2ut + o2nit ) * 0.80_rk - rno3 - rno3 * 0.60_rk ) / rno3
 
    real(rk), parameter :: rday    = 24._rk*60._rk*60._rk      !: day                                [s]
    real(rk), parameter :: r1_rday = 1._rk / rday
-   real(rk), parameter :: rtrn    = 0.5_rk * EPSILON( 1.e0_rk )  * r1_rday   !: truncation value
+   real(rk), parameter :: rtrn    = 0.5_rk * EPSILON( 1.e0_rk )    !: truncation value
 
    real(rk), parameter :: xstep = r1_rday
 
