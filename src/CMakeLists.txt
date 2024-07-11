@@ -22,7 +22,8 @@ add_library(fabm_models_pisces OBJECT
             sediment.F90
            )
 
-add_dependencies(fabm_models_pisces fabm_base)
+   #add_dependencies(fabm_models_pisces fabm_base)
+   target_link_libraries(fabm_models_pisces PRIVATE fabm_base)
 
 #-----------------------------------------------------------------------
 # Copyright (C) 2021 - BB
