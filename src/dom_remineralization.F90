@@ -25,7 +25,7 @@ module pisces_dom_remineralization
 
    type, extends(type_base_model), public :: type_pisces_bacteria
       type (type_dependency_id) :: id_gdept_n, id_zoo, id_mes
-      type (type_surface_dependency_id) :: id_hmld, id_heup
+      type (type_surface_dependency_id) :: id_hmld, id_heup_01
       type (type_diagnostic_variable_id) :: id_bact
    contains
       procedure :: initialize => bacteria_initialize
@@ -44,9 +44,9 @@ contains
 
       call self%get_parameter(self%xremikc, 'xremikc', 'd-1', 'remineralization rate of doc', default=0.4_rk)
       call self%get_parameter(self%xkdoc, 'xkdoc', 'mol C L-1', 'DOC half-saturation constant', default=417.E-6_rk)
-      call self%get_parameter(self%concno3, 'concno3', 'mol C L-1', 'nitrate half-saturation constant', default=2.E-7_rk)   ! ???? 0.03 umol N/L in paper
-      call self%get_parameter(self%concnh4, 'concnh4', 'mol C L-1', 'ammonium/phosphate half-saturation constant', default=2.E-8_rk)! ???? 0.003 umol N or P/L in paper
-      call self%get_parameter(self%concfe, 'concfe', 'mol Fe L-1', 'iron half-saturation constant', default=1.E-11_rk)
+      call self%get_parameter(self%concno3, 'concno3', 'mol C L-1', 'nitrate half-saturation constant', default=3.E-7_rk)   ! ???? 0.03 umol N/L in paper
+      call self%get_parameter(self%concnh4, 'concnh4', 'mol C L-1', 'ammonium/phosphate half-saturation constant', default=3.E-7_rk)! ???? 0.003 umol N or P/L in paper
+      call self%get_parameter(self%concfe, 'concfe', 'mol Fe L-1', 'iron half-saturation constant', default=3.E-11_rk)
 
       call self%get_parameter(self%mumax0, 'mumax0', 'd-1', 'maximum iron uptake rate of bacteria at 0 degrees Celsius', default=0.6_rk)
       call self%get_parameter(self%feratb, 'feratb', 'mol Fe (mol C)-1', 'Fe/C quota in bacteria', default=60.E-6_rk)
@@ -74,7 +74,7 @@ contains
 
       allocate(pbacteria)
       call self%add_child(pbacteria, 'bacteria')
-      call pbacteria%request_coupling(pbacteria%id_heup, '../heup')
+      call pbacteria%request_coupling(pbacteria%id_heup_01, '../heup_01')
       call pbacteria%request_coupling(pbacteria%id_zoo, '../zoo')
       call pbacteria%request_coupling(pbacteria%id_mes, '../mes')
 
@@ -98,7 +98,7 @@ contains
       real(rk) :: zlim1, zlim2, zlim3, zlim4, xlimbacl, xlimbac
       real(rk) :: zdepbac, nitrfac, nitrfac2
       real(rk) :: zremik, zolimic, zolimi, zammonic, denitr, zoxyremc
-      real(rk) :: tgfunc, zdep, zdepmin, zdepprod, zdepeff, zbactfer, blim, zremikc
+      real(rk) :: tgfunc, zdep, zdepmin, zdepprod, zdepeff, zbactfer, blim, zremikc, zlimnh4, zlimno3, znutlimtot !,zoo, mes, ztempbac
 
       real(rk), parameter :: xstep = r1_rday
 
@@ -118,9 +118,19 @@ contains
          _GET_(self%id_tem, tem)                  ! temperature (degrees Celsius)
 
          ! Jorn: from p4zlim.F90
-         zdenom = 1._rk /  ( self%concno3 * self%concnh4 + self%concnh4 * no3 + self%concno3 * nh4 )  ! Jorn: denominator in Eq 34g,h
-         xnanono3 = no3 * self%concnh4 * zdenom                              ! Jorn: Eq 34h
-         xnanonh4 = nh4 * self%concno3 * zdenom                              ! Jorn: Eq 34g
+         !zdenom = 1._rk /  ( self%concno3 * self%concnh4 + self%concnh4 * no3 + self%concno3 * nh4 )  ! Jorn: denominator in Eq 34g,h
+         !xnanono3 = no3 * self%concnh4 * zdenom                              ! Jorn: Eq 34h
+         !xnanonh4 = nh4 * self%concno3 * zdenom                    ! Jorn: Eq 34g
+!********************/ Mokrane / ************************
+         
+         zlimnh4 = nh4 / ( self%concno3 + nh4 )
+         zlimno3 = no3 / ( self%concno3 + no3 )
+         znutlimtot = ( nh4 + no3 ) / ( self%concno3 + nh4 + no3 )
+         xnanonh4 = znutlimtot * 5.0 * zlimnh4 / ( zlimno3 + 5.0 * zlimnh4 + rtrn )
+         xnanono3 = znutlimtot * zlimno3 / ( zlimno3 + 5.0 * zlimnh4 + rtrn )
+
+!********************************************************
+
          !
          zlim1    = xnanono3 + xnanonh4                  ! Jorn: Eq 34f
          zlim2    = po4 / ( po4 + self%concnh4 )         ! Jorn: Eq 34e
@@ -138,9 +148,7 @@ contains
          ! DOC ammonification. Depends on depth, phytoplankton biomass
          ! and a limitation term which is supposed to be a parameterization of the bacterial activity. 
 
-         !zremik = self%xremik * xstep / 1.e-6_rk * xlimbac * zdepbac   ! Jorn: 1.e-6_rk likely takes role of Bact_ref
          zremik = xstep / 1.e-6 * xlimbac * zdepbac
-         !zremik = MAX( zremik, 2.74e-4_rk * xstep )
          zremik = MAX( zremik, 2.74e-4 * xstep / self%xremikc )
          zremikc = self%xremikc * zremik
          ! Ammonification in oxic waters with oxygen consumption
@@ -168,20 +176,22 @@ contains
          _SET_DIAGNOSTIC_(self%id_remin, zolimi)
          _SET_DIAGNOSTIC_(self%id_denit, denitr * rdenit * rno3)
 
-         zdep = MAX( hmld, heup_01, gdept_n)
+         zdep = MAX( hmld, heup_01) !, gdept_n)
          zdepmin = MIN( 1._rk, zdep / gdept_n )
          zdepprod = zdepmin**0.273_rk
          zdepeff  = 0.3_rk * zdepmin**0.6_rk
-         !tgfunc = EXP( 0.063913_rk * tem )  ! Jorn: Eq 4a in PISCES-v2 paper, NB EXP(0.063913) = 1.066 = b_P
          tgfunc = EXP( 0.0631_rk * tem ) 
+
+
+         !--------------
 
          ! Bacterial uptake of iron. No iron is available in DOC. So
          ! Bacteries are obliged to take up iron from the water. Some
          ! studies (especially at Papa) have shown this uptake to be significant
          ! ----------------------------------------------------------
-         zbactfer = self%feratb * self%mumax0 / rday * tgfunc * xlimbacl     & ! Jorn: Eq 63, mu now configurable (defaulting to 0.6, OA 2021-09-03), dropped multiplication with rfact2 [time step in seconds]
-            &              * fer / ( self%xkferb + fer )    &
-            &              * zdepeff * zdepbac                          ! Mokrane: in the original version we use biron instead of fer
+         zbactfer = self%feratb * self%mumax0 * xstep * tgfunc * xlimbacl     & ! Jorn: Eq 63, mu now configurable (defaulting to 0.6, OA 2021-09-03), dropped multiplication with rfact2 [time step in seconds]
+           &              * fer / ( self%xkferb + fer )    &
+           &              * zdepeff * zdepbac                          ! Mokrane: in the original version we use biron instead of fer
          _ADD_SOURCE_(self%id_fer, - zbactfer*0.1_rk)
          _ADD_SOURCE_(self%id_sfe, + zbactfer*0.08_rk)
          _ADD_SOURCE_(self%id_bfe, + zbactfer*0.02_rk)
@@ -201,7 +211,7 @@ contains
       call self%register_diagnostic_variable(self%id_bact, 'bact', 'mol C L-1', 'biomass proxy', source=source_do_column)
 
       call self%register_dependency(self%id_gdept_n, standard_variables%depth)
-      call self%register_dependency(self%id_heup, 'heup', 'm', 'euphotic depth')
+      call self%register_dependency(self%id_heup_01, 'heup_01', 'm', 'euphotic depth')
       call self%register_dependency(self%id_hmld, mixed_layer_thickness_defined_by_vertical_tracer_diffusivity)
       !call self%register_dependency(self%id_hmld, standard_variables%mixed_layer_thickness_defined_by_vertical_tracer_diffusivity)
       call self%register_dependency(self%id_zoo, 'zoo', 'mol C L-1', 'microzooplankton')
@@ -212,7 +222,7 @@ contains
       class (type_pisces_bacteria), intent(in) :: self
       _DECLARE_ARGUMENTS_DO_COLUMN_
 
-      real(rk) :: gdept_n, hmld, heup, zoo, mes
+      real(rk) :: gdept_n, hmld, heup_01, zoo, mes
       real(rk) :: zdep, zdepbac, ztempbac, zdepmin
 
       _DOWNWARD_LOOP_BEGIN_
@@ -224,12 +234,12 @@ contains
          ! -------------------------------------------------------
          _GET_(self%id_gdept_n, gdept_n)
          _GET_SURFACE_(self%id_hmld, hmld)
-         _GET_SURFACE_(self%id_heup, heup)
+         _GET_SURFACE_(self%id_heup_01, heup_01)
          _GET_(self%id_zoo, zoo)
          _GET_(self%id_mes, mes)
-         zdep = MAX( hmld, heup )      ! Jorn: Eq 35a
+         zdep = MAX( hmld, heup_01 )      ! Jorn: Eq 35a
          IF( gdept_n < zdep ) THEN
-            zdepbac = 0.6_rk * ( MAX(0.0, zoo + mes ) * 1.0E6 )**0.6 * 1.E-6 !MIN( 0.7_rk * ( zoo + 2._rk* mes ), 4.e-6_rk )    ! Jorn: Eq 35b
+            zdepbac = 0.6_rk * ( MAX(0._rk, zoo + mes ) * 1.0E6 )**0.6 * 1.E-6 !MIN( 0.7_rk * ( zoo + 2._rk* mes ), 4.e-6_rk )    ! Jorn: Eq 35b
             ztempbac   = zdepbac     ! Jorn: this saves the last value that is then used in the deep (clause below)
          ELSE
             zdepmin = MIN( 1._rk, zdep / gdept_n )
