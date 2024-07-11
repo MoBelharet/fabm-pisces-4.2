@@ -10,7 +10,7 @@ module pisces_oxygen
 
    type, extends(type_base_model), public :: type_pisces_oxygen
       type (type_dependency_id) :: id_tempis, id_salinprac
-      type (type_surface_dependency_id) :: id_wndm, id_fr_i, id_patm
+      type (type_surface_dependency_id) :: id_wndm, id_fr_i, id_patm, id_sst
       type (type_state_variable_id) :: id_oxy
       type (type_diagnostic_variable_id) :: id_chemo2, id_nitrfac
       type (type_surface_diagnostic_variable_id) :: id_Oflx, id_Dpo2
@@ -44,6 +44,7 @@ contains
       call self%register_dependency(self%id_wndm, standard_variables%wind_speed)
       call self%register_dependency(self%id_fr_i, standard_variables%ice_area_fraction)
       call self%register_dependency(self%id_patm, standard_variables%surface_air_pressure)
+      call self%register_dependency(self%id_sst, standard_variables%surface_temperature)
    end subroutine initialize
 
    ! Jorn: from p4zche.F90
@@ -101,7 +102,7 @@ contains
       real(rk), parameter ::   xconv  = 0.01_rk / 3600._rk   !: coefficients for conversion
       real(rk), parameter ::   atm_per_pa = 1._rk / 101325._rk
 
-      real(rk) :: oxy, tempis, salinprac, wndm, fr_i, patm
+      real(rk) :: oxy, tempis, salinprac, wndm, fr_i, patm, sst
       real(rk) :: chemo2, ztc, ztc2, ztc3, ztc4, zsch_o2, zws, zkgwan, zkgo2, zfld16, zflu16, zoflx
 
       ! Jorn: from p4zflx.F90
@@ -112,10 +113,11 @@ contains
          _GET_SURFACE_(self%id_wndm, wndm)      ! wind speed (m/s)
          _GET_SURFACE_(self%id_fr_i, fr_i)      ! ice area fraction (1)
          _GET_SURFACE_(self%id_patm, patm)      ! atmospheric pressure (Pa)
+         _GET_SURFACE_(self%id_sst, sst)
 
          chemo2 = solubility(tempis, salinprac)
 
-         ztc  = MIN( 35._rk, tempis )
+         ztc  = MIN( 35._rk, sst ) !tempis )
          ztc2 = ztc * ztc
          ztc3 = ztc * ztc2
          ztc4 = ztc2 * ztc2
