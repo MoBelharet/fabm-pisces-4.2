@@ -279,7 +279,7 @@ contains
          _SET_DIAGNOSTIC_(self%id_zfoodlim_diag, zfoodlim)
          zdenom    = zfoodlim / ( self%xkgraz + zfoodlim )
          zdenom2   = zdenom / ( zfood + rtrn )
-         zgraze    = self%grazrat * xstep * tgfunc2 * c * (1. - nitrfac)! *c    ! Jorn: compared to paper (Eq 26a), (1._rk - nitrfac) factor seems to have been added
+         zgraze    = self%grazrat * xstep * tgfunc2 * c * (1. - nitrfac)!     ! Jorn: compared to paper (Eq 26a), (1._rk - nitrfac) factor seems to have been added
           
 
          _SET_DIAGNOSTIC_(self%id_zgraze_diag, zgraze/xstep)
@@ -340,7 +340,7 @@ contains
          _GET_(self%id_gdepw_n, gdepw_n)
          zproport  = 0._rk
          IF( gdepw_n > MAX(hmld , heup_01 ) ) THEN
-              zproport  = (zgrazffep + zgrazffeg)/(rtrn + zgraztotc) ! for microzoo: zproport = 0 because zgrazffep=0 and zgrazffeg=0
+              zproport  = (zgrazffep + zgrazffeg)/(rtrn/1800._rk + zgraztotc) ! for microzoo: zproport = 0 because zgrazffep=0 and zgrazffeg=0
          ENDIF
          _SET_DIAGNOSTIC_(self%id_zproport_diag, zproport)
 
