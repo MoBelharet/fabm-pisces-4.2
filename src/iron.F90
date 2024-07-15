@@ -97,7 +97,7 @@ contains
       real(rk) :: fer, doc, poc, goc, cal, gsi, hi, oxy, etot, xdiss, gphit, tempis, salinprac, gdept_n, no3
       real(rk) :: ztkel, zsal, zis, fekeq, ztkel1, fesol(5)
       real(rk) :: ztotlig, zTL1, zkeq, zfesatur, ztfe, zFe3, zFeL1, zdust, zhplus, fe3sol, zfeequi, zfecoll, precip, ztrc, precipno3, zfeprecip
-      real(rk) :: zxlam, zlam1a, zlam1b, zscave, zdenom1, zdenom2, zlamfac, zdep, zcoag, zaggdfea, zaggdfeb
+      real(rk) :: zxlam, zlam1a, zlam1b, zscave, zdenom1, zdenom2,  zcoag, zaggdfea, zaggdfeb
       real(rk) :: etot_ndcy, fr_i, zlight, zsoufer
       real(rk) :: chemo2, xfecolagg, zklight, consfe3, za1, plig, nitrfac, xcoagfe, zconsfe
 
@@ -129,7 +129,7 @@ contains
          fekeq  = 10**( 17.27 - 1565.7 / ztkel )
 
          ! Liu and Millero (1999) only valid 5 - 50 degC
-         ztkel1 = MAX( 5. , tempis ) + 273.16
+         ztkel1 = MAX( 5._rk , tempis ) + 273.16
          fesol(1) = 10**(-13.486 - 0.1856* zis**0.5 + 0.3073*zis + 5254.0/ztkel1)
          fesol(2) = 10**(2.517 - 0.8885*zis**0.5 + 0.2139 * zis - 1320.0/ztkel1 )
          fesol(3) = 10**(0.4511 - 0.3305*zis**0.5 - 1996.0/ztkel1 )
@@ -146,7 +146,7 @@ contains
          ELSE
             IF( ln_ligvar ) THEN
                ztotlig =  0.09 * 0.667 * doc * 1E6 + xfecolagg
-               ztotlig =  MIN( ztotlig, 10. )
+               ztotlig =  MIN( ztotlig, 10._rk )
             ELSE
                ztotlig = self%ligand * 1E9
             ENDIF
@@ -179,7 +179,7 @@ contains
           
          zFe3  = ( -1 * za1 + SQRT( za1**2 + 4. * ztfe * zkeq) ) / (2. * zkeq + rtrn ) ! Eq 65
          
-         zFeL1 = MAX( 0., fer - zFe3 )  ! Jorn: "complexed" iron (nmol/L)
+         zFeL1 = MAX( 0._rk, fer - zFe3 )  ! Jorn: "complexed" iron (nmol/L)
          
          _SET_DIAGNOSTIC_(self%id_Fe3, zFe3)
          _SET_DIAGNOSTIC_(self%id_FeL1, zFeL1)
@@ -214,13 +214,13 @@ contains
          !
          !zfeequi = zFe3 * 1E-9
          ! precipitation of Fe3+, creation of nanoparticles
-         precip = MAX( 0., ( zFe3  - fe3sol ) ) * self%kfep * xstep * ( 1.0 - nitrfac )   ! Jorn: replaces Eq 62?
+         precip = MAX( 0._rk, ( zFe3  - fe3sol ) ) * self%kfep * xstep * ( 1.0 - nitrfac )   ! Jorn: replaces Eq 62?
          precipno3 = 2.0 * 130.0 * no3 * nitrfac * xstep * zFe3
          zfeprecip = precip + precipno3
          !
          ztrc   = MAX( ( poc + goc + cal + gsi ) * 1.e6 , rtrn)
          
-         zxlam  = MAX( 1.E-3, (1. - EXP(-2 * oxy / 100.E-6 )))
+         zxlam  = MAX( 1.E-3_rk, (1. - EXP(-2 * oxy / 100.E-6 )))
          zlam1b = 3.e-5 + ( self%xlamdust * zdust + self%xlam1 * ztrc ) * zxlam
          zscave = zFe3 * zlam1b * xstep
          
@@ -234,13 +234,6 @@ contains
          
          xcoagfe = zlam1a + zlam1b
 
-         !  Increased scavenging for very high iron concentrations found near the coasts 
-         !  due to increased lithogenic particles and let say it is unknown processes (precipitation, ...)
-         !  -----------------------------------------------------------
-         !zlamfac = MAX( 0.e0, ( gphit + 55.) / 30. )
-         !zlamfac = MIN( 1.  , zlamfac )
-         !zdep    = MIN( 1., 1000. / gdept_n )
-         !zcoag   = 1E-4 * ( 1. - zlamfac ) * zdep * xstep * fer
 
          !  Compute the coagulation of colloidal iron. This parameterization 
          !  could be thought as an equivalent of colloidal pumping.

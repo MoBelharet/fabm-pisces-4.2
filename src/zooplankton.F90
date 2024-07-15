@@ -223,7 +223,7 @@ contains
          zcompa = MAX( ( c - 1.e-9_rk ), 0.e0_rk )
          zfact   = xstep * tgfunc2 * zcompa
 
-         zproport  = min(1._rk, exp(-1.1_rk * MAX(0._rk, self%phlim * ( sized - 1.8_rk ))**0.8 )) ! for meso : zproport = 1 , 
+         zproport  = MIN(1._rk, exp(-1.1_rk * MAX(0._rk, self%phlim * ( sized - 1.8_rk ))**0.8 )) ! for meso : zproport = 1 , 
 
          !   Michaelis-Menten mortality ates of microzooplankton - Jorn: last (4th) term in Eq 24
          !   -----------------------------------------------------
@@ -257,10 +257,10 @@ contains
          _GET_(self%id_quotad, quotad)
          _GET_(self%id_xfracal, xfracal)
        
-         zcompadi  = zproport * MAX( ( dia - self%xthreshdia ), 0. )  ! Jorn: xsizedia = 0 for mesozoo
-         zcompaph  = MAX( ( phy - self%xthreshphy ), 0. )
-         zcompapoc = MAX( ( poc - self%xthreshpoc ), 0. )
-         zcompaz   = MAX( ( zoo - self%xthreshzoo ), 0. )
+         zcompadi  = zproport * MAX( ( dia - self%xthreshdia ), 0._rk )  ! Jorn: xsizedia = 0 for mesozoo
+         zcompaph  = MAX( ( phy - self%xthreshphy ), 0._rk )
+         zcompapoc = MAX( ( poc - self%xthreshpoc ), 0._rk )
+         zcompaz   = MAX( ( zoo - self%xthreshzoo ), 0._rk )
 
          _SET_DIAGNOSTIC_(self%id_zcompaph_diag, zcompaph)
          _SET_DIAGNOSTIC_(self%id_zcompapoc_diag, zcompapoc)
@@ -275,7 +275,7 @@ contains
          ! ----------------------------------
          zfood     = self%xprefn * zcompaph + self%xprefc * zcompapoc + self%xprefd * zcompadi + self%xprefz * zcompaz   ! Jorn: 1st term in Eq 26a
          _SET_DIAGNOSTIC_(self%id_zfood_diag, zfood)
-         zfoodlim  = MAX( 0. , zfood - MIN(self%xthresh, 0.5_rk * zfood) )                                               ! Jorn: 2nd term in Eq 26a
+         zfoodlim  = MAX( 0._rk , zfood - MIN(self%xthresh, 0.5_rk * zfood) )                                               ! Jorn: 2nd term in Eq 26a
          _SET_DIAGNOSTIC_(self%id_zfoodlim_diag, zfoodlim)
          zdenom    = zfoodlim / ( self%xkgraz + zfoodlim )
          zdenom2   = zdenom / ( zfood + rtrn )

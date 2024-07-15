@@ -304,7 +304,7 @@ contains
             remint = remint + alpha(jn) * self%reminp(jn)
          END DO
          ! Mean remineralization rate in the mixed layer
-         ztremint =  MAX( 0., remint )
+         ztremint =  MAX( 0._rk, remint )
       ENDIF
 
       first = .true.
@@ -357,7 +357,7 @@ contains
                ! framework. It is only used for the lability param
                zpoc = c1 + cons * rday               &   ! Jorn: dropped division by rfact2 as consgoc is already per second (unlike in pisces, where it is premultiplied by time step rfact2)
                &   * e3t_n / 2. / (ws + rtrn)                     ! Jorn: time (d) it takes to sink half the current layer height?
-               zpoc = MAX(0., zpoc)
+               zpoc = MAX(0._rk, zpoc)
                !
                DO jn = 1, self%jcpoc
                   !
@@ -385,7 +385,7 @@ contains
                zpoc = c1 + cons1 * rday                &   ! Jorn: dropped division by rfact2 as consgoc is already per second (unlike in pisces, where it is premultiplied by time step rfact2)
                &   * e3t_n1 / 2. / (ws1 + rtrn) + cons   &
                &   * rday * e3t_n / 2. / (ws + rtrn)
-               zpoc = max(0., zpoc)
+               zpoc = max(0._rk, zpoc)
                !
                DO jn = 1, self%jcpoc
                   alpha(jn) = alpha1(jn) * expz(jn) * expz1(jn) * zpoc + ( prodn1(jn) / tgfunc1 * ( 1.           &
@@ -406,7 +406,7 @@ contains
                alpha(jn) = alpha(jn) / ( alphat + rtrn)
             END DO
             ! Computation of the mean remineralisation rate
-            ztremint =  MAX(0., remint / ( alphat + rtrn) )
+            ztremint =  MAX(0._rk, remint / ( alphat + rtrn) )
 
 
          ENDIF

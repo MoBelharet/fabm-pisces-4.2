@@ -87,7 +87,7 @@ contains
          zlight  =  ( 1.- EXP( -etot_ndcy / self%diazolight ) ) * ( 1. - fr_i )  ! Jorn: Eq 58b last term
 
          !                      ! Potential nitrogen fixation dependant on temperature and iron
-         zmudia = MAX( 0.,-0.001096*ztemp**2 + 0.057*ztemp -0.637 ) * 7.625
+         zmudia = MAX( 0._rk,-0.001096*ztemp**2 + 0.057*ztemp -0.637 ) * 7.625
 
          _SET_DIAGNOSTIC_(self%id_zmudia_diag, zmudia)
 
