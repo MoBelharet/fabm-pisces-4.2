@@ -20,7 +20,11 @@ module pisces_shared
 
    real(rk), parameter :: xstep = r1_rday
 
+
    real(rk), parameter :: nyear_len = 365._rk  ! Jorn - TODO should be made dynamic to account for leap years, different calendars, etc.
+   real(rk), parameter :: mMass_Fe = 55.85_rk ! Molar Mass of iron
+   real(rk), parameter :: mMass_Si = 28._rk ! Molar Mass of Silicon
+   real(rk), parameter :: mMass_P = 31._rk ! Molar Mass of of phosphorus
 
    real(rk) :: maxdt = 1800._rk ! Jorn: maximum time step in seconds, used to limit benthic-pelagic fluxes in order to prevent negative values
 
