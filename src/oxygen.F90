@@ -10,10 +10,10 @@ module pisces_oxygen
 
    type, extends(type_base_model), public :: type_pisces_oxygen
       type (type_dependency_id) :: id_tempis, id_salinprac
-      type (type_surface_dependency_id) :: id_wndm, id_fr_i, id_patm, id_sst
+      type (type_surface_dependency_id) :: id_wndm, id_fr_i, id_sst , id_patm
       type (type_state_variable_id) :: id_oxy
       type (type_diagnostic_variable_id) :: id_chemo2, id_nitrfac
-      type (type_surface_diagnostic_variable_id) :: id_Oflx, id_Dpo2
+      type (type_surface_diagnostic_variable_id) :: id_Oflx, id_Dpo2, id_zfld16_diag, id_zflu16_diag
       real(rk) :: oxymin
    contains
       procedure :: initialize
@@ -38,6 +38,9 @@ contains
       call self%register_diagnostic_variable(self%id_nitrfac, 'nitrfac', '1', 'denitrication factor')
       call self%register_diagnostic_variable(self%id_Oflx, 'Oflx', 'mol m-2 s-1', 'air-sea O2 flux')
       call self%register_diagnostic_variable(self%id_Dpo2, 'Dpo2', 'uatm', 'delta pO2')
+      call self%register_diagnostic_variable(self%id_zfld16_diag, 'zfld16_diag', '-','diagnostic of zfld16')
+      call self%register_diagnostic_variable(self%id_zflu16_diag, 'zflu16_diag', '-','diagnostic of zflu16')
+     
 
       call self%register_dependency(self%id_tempis, standard_variables%temperature) ! should be in-situ temperature (as opposed to conservative/potential)
       call self%register_dependency(self%id_salinprac, standard_variables%practical_salinity)
@@ -141,6 +144,10 @@ contains
          _ADD_SURFACE_FLUX_(self%id_oxy, zoflx)
          _SET_SURFACE_DIAGNOSTIC_(self%id_Oflx, zoflx * 1000._rk)
          _SET_SURFACE_DIAGNOSTIC_(self%id_Dpo2, atcox * atm_per_pa * patm - atcox * oxy / ( chemo2 + rtrn ) )
+
+         _SET_SURFACE_DIAGNOSTIC_(self%id_zfld16_diag, zfld16 * 1000._rk)
+         _SET_SURFACE_DIAGNOSTIC_(self%id_zflu16_diag, zflu16 * 1000._rk)
+
       _SURFACE_LOOP_END_
    end subroutine
 
