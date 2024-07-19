@@ -16,7 +16,8 @@ module pisces_zooplankton
       type (type_state_variable_id) :: id_dia, id_dfe, id_dsi, id_dch, id_phy, id_nfe, id_nch, id_zoo, id_poc, id_sfe, id_goc, id_bfe, id_gsi
       type (type_state_variable_id) :: id_po4, id_no3, id_nh4, id_doc, id_dic, id_tal, id_poc_waste, id_pof_waste, id_pos_waste, id_cal
       type (type_state_variable_id) :: id_conspoc, id_consgoc, id_prodpoc, id_poc_waste_prod, id_prodgoc
-      type (type_dependency_id)     :: id_tem, id_nitrfac, id_quotan, id_quotad, id_xfracal, id_wspoc, id_wsgoc, id_gdepw_n ,id_sized, id_sizen
+      type (type_dependency_id)     :: id_tem, id_nitrfac, id_quotan, id_quotad, id_xfracal, id_wspoc, id_wsgoc, id_gdepw_n, id_sized, id_sizen
+      type (type_global_dependency_id)  :: id_rDttrc
       type (type_surface_dependency_id) :: id_hmld, id_heup_01
       type (type_diagnostic_variable_id) :: id_zfezoo, id_zgrazing, id_zfrac, id_pcal
       type (type_diagnostic_variable_id) :: id_zfood_diag, id_zfoodlim_diag, id_ztmp2_diag, id_ztmp1_diag, id_zgrazp_diag, id_zgrazpoc_diag,&
@@ -161,6 +162,7 @@ contains
       !call self%register_dependency(self%id_hmld, standard_variables%mixed_layer_thickness_defined_by_vertical_tracer_diffusivity)
       call self%register_dependency(self%id_heup_01, 'heup_01', 'm', 'euphotic layer depth (PAR > 0.5 W m-2)')
       call self%register_dependency(self%id_gdepw_n, standard_variables%depth)
+      call self%register_dependency(self%id_rDttrc, standard_variables%physical_time_step)
 
       ! Allow wholesale coupling of prey, which then automatically sets up the constituent coupling
       call self%request_coupling_to_model(self%id_dia, 'dia', 'c')
@@ -196,8 +198,8 @@ contains
       class (type_pisces_zooplankton), intent(in) :: self
       _DECLARE_ARGUMENTS_DO_
 
-      real(rk) :: c, tem, nitrfac
-      real(rk) :: tgfunc2, zcompa, zfact, zrespz, ztortz
+      real(rk) :: c, tem, nitrfac, rfact2
+      real(rk) :: tgfunc2, zcompa, zfact, zrespz, ztortz, rDt_trc
       real(rk) :: zcompadi, zcompaph, zcompapoc, zcompaz
       real(rk) :: zfood, zfoodlim, zdenom, zdenom2, zgraze
       real(rk) :: dia, dfe, dsi, dch, phy, nfe, nch, zoo, poc, sfe, goc, bfe, gsi, quotan, quotad, xfracal, wspoc, wsgoc
@@ -216,6 +218,10 @@ contains
 
          _SET_DIAGNOSTIC_(self%id_sizen_diag, sizen)
          _SET_DIAGNOSTIC_(self%id_sized_diag, sized)
+
+         _GET_GLOBAL_(self%id_rDttrc, rDt_trc)
+
+         rfact2 = rDt_trc /1._rk       !
 
           tgfunc2 = EXP( 0.0761_rk  * tem )        ! Jorn: from p4zint.F90, equivalent to Eq 25b as NB EXP(0.07608) = 1.079 = b_Z
 !         tgfunc2 = EXP( self%logbz  * tem )         ! AC: set log(bz) as parameter.
@@ -340,7 +346,7 @@ contains
          _GET_(self%id_gdepw_n, gdepw_n)
          zproport  = 0._rk
          IF( gdepw_n > MAX(hmld , heup_01 ) ) THEN
-              zproport  = (zgrazffep + zgrazffeg)/(rtrn/1800._rk + zgraztotc) ! for microzoo: zproport = 0 because zgrazffep=0 and zgrazffeg=0
+              zproport  = (zgrazffep + zgrazffeg)/(rtrn/rfact2 + zgraztotc) ! for microzoo: zproport = 0 because zgrazffep=0 and zgrazffeg=0
          ENDIF
          _SET_DIAGNOSTIC_(self%id_zproport_diag, zproport)
 
@@ -391,8 +397,8 @@ contains
          ! GGE can also be decreased when food quantity is high, zepsherf (Montagnes and
          ! Fulton, 2012)
          ! -----------------------------------------------------------------------------
-         zgrasrat  = ( zgraztotf + rtrn/1800._rk ) / ( zgraztotc + rtrn/1800._rk  )  ! Jorn: Fe : C ratio in ingested prey
-         zgrasratn = ( zgraztotn + rtrn/1800._rk ) / ( zgraztotc + rtrn/1800._rk  )  ! Jorn: N : C ratio in ingested prey, but N already expressed in C units
+         zgrasrat  = ( zgraztotf + rtrn/rfact2 ) / ( zgraztotc + rtrn/rfact2  )  ! Jorn: Fe : C ratio in ingested prey
+         zgrasratn = ( zgraztotn + rtrn/rfact2 ) / ( zgraztotc + rtrn/rfact2  )  ! Jorn: N : C ratio in ingested prey, but N already expressed in C units
          zepshert  =  MIN( 1._rk, zgrasratn, zgrasrat / self%ferat)  ! Jorn: Eq 27a, maximum rate of biomass production, derived from incoming C, N, Fe
          zbeta     = MAX(0._rk, (self%epsher - self%epshermin) )
          zepsherf  = self%epshermin + zbeta / ( 1.0_rk + 0.04E6_rk * 12._rk * zfood * zbeta )
