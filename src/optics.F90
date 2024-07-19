@@ -20,8 +20,8 @@ module pisces_optics
       type (type_dependency_id)                  :: id_chltot, id_e3t_n
       type (type_surface_dependency_id)          :: id_qsr, id_par_varsw, id_hmld, id_fr_i
       type (type_horizontal_dependency_id)       :: id_qsr_mean
-      type (type_diagnostic_variable_id)         :: id_pe1, id_pe2, id_pe3, id_etot_ndcy, id_etot, id_Tchl
-      type (type_surface_diagnostic_variable_id) :: id_heup, id_heup_01, id_emoy, id_zpar, id_zqsr , id_dqsr, id_dpqsr100, id_gdepw_diag
+      type (type_diagnostic_variable_id)         :: id_pe1, id_pe2, id_pe3, id_etot_ndcy, id_etot, id_Tchl, id_par
+      type (type_surface_diagnostic_variable_id) :: id_heup, id_heup_01, id_emoy, id_zpar, id_zqsr , id_dqsr, id_dpqsr100, id_gdepw_diag, id_par0
 
       logical :: ln_varpar, ln_p4z_dcyc
       real(rk) :: xparsw
@@ -78,6 +78,8 @@ contains
       call self%register_diagnostic_variable(self%id_dpqsr100, 'v_dpqsr100', 'm','Euphotic depth', source=source_do_column) ! Added by Mokrane to store the qsr variable
       call self%register_diagnostic_variable(self%id_Tchl, 'Tchl', 'unknown','Total chlorophyll', source=source_do_column) ! Added by Mokrane to store the zqsr_mean variable
       call self%register_diagnostic_variable(self%id_gdepw_diag, 'gdepw_n','m','depth',source=source_do_column) ! Added by Mokrane
+      call self%register_diagnostic_variable(self%id_par, 'par', 'W m-2', 'instantaneous PAR ', source=source_do_column)
+      call self%register_diagnostic_variable(self%id_par0, 'par0', 'W m-2', 'instantaneous surface PAR ', source=source_do_column)
    end subroutine initialize
 
    subroutine do_column(self, _ARGUMENTS_DO_COLUMN_)
@@ -88,7 +90,7 @@ contains
       real(rk) :: ekb, ekg, ekr
       real(rk) :: zchl3d, zchl, e3t_n, gdepw_n, gdepw_n_diag
       integer :: irgb
-      real(rk) :: f1, f2, f3, pe1, pe2, pe3, heup, heup_01, etot_ndcy, etot
+      real(rk) :: f1, f2, f3, pe1, pe2, pe3, heup, heup_01, etot_ndcy, etot, par, par0
       real(rk) :: zetmp1, zetmp2, zdepmoy
       logical :: first
 
@@ -116,6 +118,9 @@ contains
          zqsr      = self%xparsw * qsr
          zqsr_mean = self%xparsw * qsr_mean
       ENDIF
+
+      ! Mokrane:
+      par0 = max(zqsr * 3 * (1. - fr_i + rtrn) , 0._rk)
         
       IF (self%ln_p4z_dcyc) zqsr = zqsr_mean ! if diurnal cycle
 
@@ -168,6 +173,8 @@ contains
          
          etot = pe1 + pe2 + pe3
 
+         par = (1._rk - fr_i + rtrn) * etot
+
          etot_ndcy = etot
 
          _SET_DIAGNOSTIC_(self%id_pe1, pe1)
@@ -175,10 +182,12 @@ contains
          _SET_DIAGNOSTIC_(self%id_pe3, pe3)
          _SET_DIAGNOSTIC_(self%id_etot_ndcy, etot_ndcy)
          _SET_DIAGNOSTIC_(self%id_etot, etot)
-         _SET_SURFACE_DIAGNOSTIC_(self%id_zqsr, qsr_mean) ! Added by Mokrane
-         _SET_SURFACE_DIAGNOSTIC_(self%id_dqsr, qsr) ! Added by Mokrane
-         _SET_SURFACE_DIAGNOSTIC_(self%id_dpqsr100, pqsr100) ! Added by Mokrane
-         _SET_DIAGNOSTIC_(self%id_Tchl,zchl3d) ! Added by Mokrane
+         _SET_SURFACE_DIAGNOSTIC_(self%id_zqsr, qsr_mean) ! Mokrane
+         _SET_SURFACE_DIAGNOSTIC_(self%id_dqsr, qsr) ! Mokrane
+         _SET_SURFACE_DIAGNOSTIC_(self%id_dpqsr100, pqsr100) ! Mokrane
+         _SET_DIAGNOSTIC_(self%id_Tchl,zchl3d) ! Mokrane
+         _SET_DIAGNOSTIC_(self%id_par,par) ! Mokrane
+         _SET_SURFACE_DIAGNOSTIC_(self%id_par0,par0) ! Mokrane
 
          gdepw_n = gdepw_n + e3t_n
          IF (first .or. etot_ndcy >= pqsr100) heup    = gdepw_n  ! Euphotic layer depth
