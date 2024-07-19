@@ -5,14 +5,13 @@ instances:
     parameters:
       ln_varpar: false
       ln_p4z_dcyc: false
-
   no3:
     long_name: nitrate
     model: pisces/tracer
     parameters:
       has_nitrogen: true
     initialization:
-      c: 0.0002259562
+      c: 0.00022595625
   nh4:
     long_name: ammonium
     model: pisces/tracer
@@ -54,7 +53,7 @@ instances:
     long_name: small particulate organic matter
     model: pisces/pom
     parameters:
-      ws: 2
+      ws: 0. #2
       solgoc: 0
       mlvar: true
     initialization:
@@ -70,7 +69,7 @@ instances:
     parameters:
       has_silicon: true
       has_calcite: true
-      ws: 50
+      ws: 0. #50
     initialization:
       c: 1.e-8
       fe: 5.e-14
@@ -94,7 +93,6 @@ instances:
       concfer: 1.7e-9
       chlcm: 0.033
       xmort: 1.e-9
-      pislope: 2.0
     coupling:
       no3: no3/c
       nh4: nh4/c
@@ -131,7 +129,6 @@ instances:
       xmort: 1.e-9
       wchl: 0.03
       xsizer: 4.0
-      pislope: 2.0
     coupling:
       no3: no3/c
       nh4: nh4/c
@@ -165,8 +162,8 @@ instances:
     model: pisces/oxygen
   daylength:
     model: pisces/daylength
-  turbocline:
-    model: pisces/turbocline
+      # turbocline:
+      #model: pisces/turbocline
   shear:
     model: pisces/shear
   zoo:
@@ -341,3 +338,31 @@ instances:
     parameters:
       standard_name: ice_area_fraction
       value: 0
+  vertical_distribution:
+    model: migration/vertical_distribution
+    long_name: vertical_points_where_migrators_are_present
+    use: false
+    coupling:
+      downwelling_photosynthetic_radiative_flux: optics/par
+      surface_downwelling_photosynthetic_radiative_flux: optics/par0
+  vertical_weights:
+    model: migration/weight_distribution
+    long_name: vertical_points_where_migrators_are_present
+    use: false
+    coupling:
+      target: mes/c
+      present: vertical_distribution/migrator_presence
+      surface_downwelling_photosynthetic_radiative_flux: optics/par0
+  migration_move:
+    model: migration/move
+    long_name: distribute_migrators
+    use: false
+    parameters:
+      tstep: 3600.0
+      m : 0.03  # migrator mortality rate (1/d), this should be the same as its respective mortality rate given above
+    coupling:
+      target: mes/c
+      integral: vertical_weights/integral
+      migrator_random_weights: vertical_weights/migrator_random_weights
+      migrator_integral_random_weights: vertical_weights/migrator_integral_random_weights
+      downwelling_photosynthetic_radiative_flux: optics/par
