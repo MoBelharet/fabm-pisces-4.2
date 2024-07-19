@@ -18,7 +18,7 @@ module pisces_dust
       real(rk) :: solub, mfrac, wdust
    contains
       procedure :: initialize
-      procedure :: do_surface
+      !procedure :: do_surface
       procedure :: do
    end type
 
@@ -48,57 +48,75 @@ contains
       call self%register_diagnostic_variable(self%id_zdust, 'zdust', 'g m-3', 'concentration')
    end subroutine initialize
 
-   subroutine do_surface(self, _ARGUMENTS_DO_SURFACE_)
-      class (type_pisces_dust), intent(in) :: self
-      _DECLARE_ARGUMENTS_DO_SURFACE_
+   !subroutine do_surface(self, _ARGUMENTS_DO_SURFACE_)
+   !   class (type_pisces_dust), intent(in) :: self
+   !   _DECLARE_ARGUMENTS_DO_SURFACE_
 
-      real(rk) :: dust, solub
-      real(rk) :: zirondep, zsidep, zpdep
+   !   real(rk) :: dust, solub
+   !   real(rk) :: zirondep, zsidep, zpdep
 
-      real(rk), parameter :: ryyss    = nyear_len * rday    ! number of seconds per year, Jorn: nyear_len should account for leap years, calendars, etc.
-      real(rk), parameter :: r1_ryyss = 1. / ryyss
+   !   real(rk), parameter :: ryyss    = nyear_len * rday    ! number of seconds per year, Jorn: nyear_len should account for leap years, calendars, etc.
+   !   real(rk), parameter :: r1_ryyss = 1. / ryyss
 
-      _SURFACE_LOOP_BEGIN_
-         _GET_SURFACE_(self%id_dustdep, dust)
+      !_SURFACE_LOOP_BEGIN_
+         !_GET_SURFACE_(self%id_dustdep, dust)
+         
+   !      !*********** Mokrane *******************
+        ! zwdust = 0.03_rk / ( self%wdust / rday ) / ( 250. * rday )
+
+         !**********************************************************
          !                                              ! Iron and Si deposition at the surface
-         IF( self%ln_solub ) THEN
-            _GET_SURFACE_(self%id_solub, solub)
-         ELSE
-            solub = self%solub
-         ENDIF
-         zirondep = solub  * dust * self%mfrac / 55.85 + 3.e-10 * r1_ryyss   ! Jorn: dropped division by e3t_n because FABM wants flux per m2, dropped multiplication with rfact2 [time step in seconds]
-         zsidep  = 8.8 * 0.075 * dust * self%mfrac / 28.1      ! Jorn: 28.1 is atomic mass of Si
-         zpdep = 0.1 * 0.021 * dust * self%mfrac / 31. / po4r  ! Jorn: solubility of P in dust is assumed 10%, 31 is atomic mass of P. 0.021 * default mfrac (0.035) approximates the 750 ppm P content of dust given in the paper
-         _ADD_SURFACE_FLUX_(self%id_sil, zsidep)
-         _ADD_SURFACE_FLUX_(self%id_po4, zpdep)
-         _ADD_SURFACE_FLUX_(self%id_fer, zirondep)
-         _SET_SURFACE_DIAGNOSTIC_(self%id_zirondep, zirondep * 1.e+3)
-         _SET_SURFACE_DIAGNOSTIC_(self%id_pdust, dust / ( self%wdust / rday ))
-      _SURFACE_LOOP_END_
-   end subroutine
+         !IF( self%ln_solub ) THEN
+         !   _GET_SURFACE_(self%id_solub, solub)
+         !ELSE
+         !   solub = self%solub
+         !ENDIF
+         !zirondep = solub  * dust * self%mfrac / 55.85 + 3.e-10 * r1_ryyss   ! Jorn: dropped division by e3t_n because FABM wants flux per m2, dropped multiplication with rfact2 [time step in seconds]
+         !zsidep  = 8.8 * 0.075 * dust * self%mfrac / 28.1      ! Jorn: 28.1 is atomic mass of Si
+         !zpdep = 0.1 * 0.021 * dust * self%mfrac / 31. / po4r  ! Jorn: solubility of P in dust is assumed 10%, 31 is atomic mass of P. 0.021 * default mfrac (0.035) approximates the 750 ppm P content of dust given in the paper
+         !_ADD_SURFACE_FLUX_(self%id_sil, zsidep)
+         !_ADD_SURFACE_FLUX_(self%id_po4, zpdep)
+         !_ADD_SURFACE_FLUX_(self%id_fer, zirondep)
+         !_SET_SURFACE_DIAGNOSTIC_(self%id_zirondep, zirondep * 1.e+3)
+         !_SET_SURFACE_DIAGNOSTIC_(self%id_pdust, dust / ( self%wdust / rday ))
+      !_SURFACE_LOOP_END_
+  ! end subroutine
 
    subroutine do(self, _ARGUMENTS_DO_)
       class (type_pisces_dust), intent(in) :: self
       _DECLARE_ARGUMENTS_DO_
 
-      real(rk) :: dust, gdept_n, zdust, zirondep, zpdep
+      real(rk) :: dust, gdept_n, zdust, zirondep, zpdep, zdustdep, zwdust
 
       _LOOP_BEGIN_
          _GET_SURFACE_(self%id_dustdep, dust)
          _GET_(self%id_gdept_n, gdept_n)
+         
+         !************ Mokrane **********
+         zwdust = 0.03_rk / ( self%wdust / rday ) / ( 250._rk * rday )
+        zdustdep = dust * zwdust  * EXP( -gdept_n /( 250._rk * self%wdust ) ) !* rfact
+        _ADD_SOURCE_(self%id_fer, + zdustdep * self%mfrac / mMass_Fe)
 
+        _ADD_SOURCE_(self%id_po4 ,  + zdustdep * 1.e-3 / mMass_P)
+
+        _ADD_SOURCE_(self%id_sil,   + zdustdep * 0.269_rk / mMass_Si)
+
+        
+        !************************************
          !                                              ! Iron solubilization of particles in the water column
          !                                              ! dust in kg/m2/s ---> 1/55.85 to put in mol/Fe ;  wdust in m/j
-         zdust  = dust / ( self%wdust / rday ) &    ! Jorn: Eq 84, note if .not. ln_dust, dust is (coupled to) 0
-         &  * EXP( -gdept_n / 540. )
+         !zdust  = dust / ( self%wdust / rday ) &    ! Jorn: Eq 84, note if .not. ln_dust, dust is (coupled to) 0
+         !&  * EXP( -gdept_n / 540. )
 
+
+         zdust = dust / ( self%wdust / rday )
          _SET_DIAGNOSTIC_(self%id_zdust, zdust)
 
-         zirondep = zdust * self%mfrac * 0.03 / 55.85 / (270.* rday)  ! Jorn : 0.03 / 270 is presumably the dissolution rate in d-1 (it approximates the value of 0.01 % per day given in the paper)
-         zpdep    = zirondep * 0.023
+         !zirondep = zdust * self%mfrac * 0.03 / 55.85 / (270.* rday)  ! Jorn : 0.03 / 270 is presumably the dissolution rate in d-1 (it approximates the value of 0.01 % per day given in the paper)
+         !zpdep    = zirondep * 0.023
          !                                              ! Iron solubilization of particles in the water column
-         _ADD_SOURCE_(self%id_po4, + zpdep   )          ! Jorn: TODO this should exclude the top layer
-         _ADD_SOURCE_(self%id_fer, + zirondep)          ! Jorn: TODO this should exclude the top layer
+         !_ADD_SOURCE_(self%id_po4, + zpdep   )          ! Jorn: TODO this should exclude the top layer
+         !_ADD_SOURCE_(self%id_fer, + zirondep)          ! Jorn: TODO this should exclude the top layer
       _LOOP_END_
    end subroutine
 
