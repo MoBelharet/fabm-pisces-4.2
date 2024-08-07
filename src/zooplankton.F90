@@ -17,7 +17,7 @@ module pisces_zooplankton
       type (type_state_variable_id) :: id_po4, id_no3, id_nh4, id_doc, id_dic, id_tal, id_poc_waste, id_pof_waste, id_pos_waste, id_cal
       type (type_state_variable_id) :: id_conspoc, id_consgoc, id_prodpoc, id_poc_waste_prod, id_prodgoc
       type (type_dependency_id)     :: id_tem, id_nitrfac, id_quotan, id_quotad, id_xfracal, id_wspoc, id_wsgoc, id_gdepw_n, id_sized, id_sizen
-      type (type_global_dependency_id)  :: id_rDttrc
+      !type (type_global_dependency_id)  :: id_rDttrc
       type (type_surface_dependency_id) :: id_hmld, id_heup_01
       type (type_diagnostic_variable_id) :: id_zfezoo, id_zgrazing, id_zfrac, id_pcal
       type (type_diagnostic_variable_id) :: id_zfood_diag, id_zfoodlim_diag, id_ztmp2_diag, id_ztmp1_diag, id_zgrazp_diag, id_zgrazpoc_diag,&
@@ -162,7 +162,7 @@ contains
       !call self%register_dependency(self%id_hmld, standard_variables%mixed_layer_thickness_defined_by_vertical_tracer_diffusivity)
       call self%register_dependency(self%id_heup_01, 'heup_01', 'm', 'euphotic layer depth (PAR > 0.5 W m-2)')
       call self%register_dependency(self%id_gdepw_n, standard_variables%depth)
-      call self%register_dependency(self%id_rDttrc, standard_variables%physical_time_step)
+      !call self%register_dependency(self%id_rDttrc, standard_variables%physical_time_step)
 
       ! Allow wholesale coupling of prey, which then automatically sets up the constituent coupling
       call self%request_coupling_to_model(self%id_dia, 'dia', 'c')
@@ -199,7 +199,7 @@ contains
       _DECLARE_ARGUMENTS_DO_
 
       real(rk) :: c, tem, nitrfac, rfact2
-      real(rk) :: tgfunc2, zcompa, zfact, zrespz, ztortz, rDt_trc
+      real(rk) :: tgfunc2, zcompa, zfact, zrespz, ztortz !, rDt_trc
       real(rk) :: zcompadi, zcompaph, zcompapoc, zcompaz
       real(rk) :: zfood, zfoodlim, zdenom, zdenom2, zgraze
       real(rk) :: dia, dfe, dsi, dch, phy, nfe, nch, zoo, poc, sfe, goc, bfe, gsi, quotan, quotad, xfracal, wspoc, wsgoc
@@ -219,7 +219,7 @@ contains
          _SET_DIAGNOSTIC_(self%id_sizen_diag, sizen)
          _SET_DIAGNOSTIC_(self%id_sized_diag, sized)
 
-         _GET_GLOBAL_(self%id_rDttrc, rDt_trc)
+         !_GET_GLOBAL_(self%id_rDttrc, rDt_trc)
 
          rfact2 = rDt_trc /1._rk       !
 
