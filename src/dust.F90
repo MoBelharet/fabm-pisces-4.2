@@ -36,7 +36,8 @@ contains
       call self%get_parameter(self%wdust, 'wdust', 'm d-1', 'sinking speed of dust', default=2._rk)
 
       !call self%register_dependency(self%id_dustdep, 'dustdep', 'g m-2 s-1', 'dust deposition')
-      call self%register_dependency(self%id_dustdep,standard_variables%dustdep) ! Mokrane
+      !call self%register_dependency(self%id_dustdep,standard_variables%dustdep) ! Mokrane: if dustdep is declared in the collection of standard variables
+      call self%register_dependency(self%id_dustdep,dustdep) ! Mokrane dustdep is declared in shared.F90 file
       if (self%ln_solub) call self%register_dependency(self%id_solub, 'solub', '1', 'solubility of iron in dust')
       call self%register_dependency(self%id_gdept_n, standard_variables%depth)
 
