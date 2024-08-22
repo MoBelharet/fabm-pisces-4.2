@@ -317,11 +317,12 @@ instances:
   dust:
     model: pisces/dust
     parameters:
-      ln_solub: false
+      ln_ironice: false
     coupling:
       po4: po4/c
       sil: sil/si
       fer: fer/fe
+      fmmflx: zero_hz
       dustdep: zero_hz
   pco2:
     model: surface_constant
