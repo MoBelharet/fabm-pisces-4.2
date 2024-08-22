@@ -34,6 +34,7 @@ module pisces_shared
    type (type_interior_standard_variable), parameter :: shear_rate = type_interior_standard_variable(name='shear_rate', units='s-1')
    type (type_surface_standard_variable), parameter :: mixed_layer_thickness_defined_by_vertical_tracer_diffusivity = type_surface_standard_variable(name='mixed_layer_thickness_defined_by_vertical_tracer_diffusivity', units='m')
    type (type_surface_standard_variable), parameter :: dustdep = type_surface_standard_variable(name='dustdep', units='g m-2 s-1')
+   type (type_surface_standard_variable), parameter :: fmmflx = type_surface_standard_variable(name='fmmflx', units='kg m-2 s-1') ! the flux asscociated to freezing-melting of sea-ice
 
    type (type_interior_standard_variable), parameter :: calcite_saturation_state = type_interior_standard_variable(name='calcite_saturation_state', units='-')
 
