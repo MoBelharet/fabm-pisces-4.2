@@ -315,6 +315,7 @@ instances:
       oxy: oxy/O2
       doc: dom/c
       nitrfac: oxy/nitrfac
+      iron_hydrothermal_source: zero
   dust:
     model: pisces/dust
     parameters:
