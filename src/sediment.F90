@@ -9,18 +9,23 @@ module pisces_sediment
    private
 
    type, extends(type_base_model), public :: type_pisces_sediment
-      type (type_bottom_diagnostic_variable_id) :: id_SedCal, id_SedSi, id_SedC, id_Sdenit
+      type (type_bottom_diagnostic_variable_id) :: id_SedCal, id_SedSi, id_SedC, id_Sdenit, id_cflux_diag, id_zwstpoc_diag
       type (type_state_variable_id)             :: id_sil, id_dic, id_tal, id_oxy, id_no3, id_nh4, id_po4, id_fer, id_doc
       type (type_bottom_dependency_id)          :: id_bdepth, id_cflux, id_siflux, id_calflux
+      type (type_bottom_dependency_id)          :: id_cell_area
       type (type_dependency_id)                 :: id_zomegaca, id_nitrfac
+      type (type_dependency_id)                 :: id_hydrofe, id_e3t_n
       type (type_bottom_diagnostic_variable_id) :: id_bc, id_bsi, id_bcal, id_bfe, id_ironsed
+      type (type_diagnostic_variable_id)         :: id_hydrofe_diag
       real(rk) :: sedsilfrac = 0.03_rk
       real(rk) :: sedcalfrac = 0.99_rk
       real(rk) :: sedfeinput
-      logical :: ln_ironsed
+      real(rk) :: hratio
+      logical :: ln_ironsed , ln_hydrofe
    contains
       procedure :: initialize
       procedure :: do_bottom
+      procedure :: do
    end type
 
 contains
@@ -33,16 +38,26 @@ contains
 
       call self%get_parameter(self%sedfeinput, 'sedfeinput', 'mol Fe L-1 d-1 m', 'iron flux from the sediments', default=2.e-9_rk)
       call self%get_parameter(self%ln_ironsed, 'ln_ironsed', '', 'variable iron input from sediment', default=.true.)
+      call self%get_parameter(self%ln_hydrofe, 'ln_hydrofe','', 'boolean for Fe input from sea hydrothermal sources', default=.false.)
+      call self%get_parameter(self%hratio, 'hratio', '1', 'Fe to 3He ratio assumed for vent iron supply', default=1.e+7_rk)
 
       call self%register_diagnostic_variable(self%id_SedCal, 'SedCal', 'mol m-2 s-1',    'calcite burial')
       call self%register_diagnostic_variable(self%id_SedSi,  'SedSi',  'mol Si m-2 s-1', 'silica burial')
       call self%register_diagnostic_variable(self%id_SedC,   'SedC',   'mol C m-2 s-1',  'organic carbon burial')
       call self%register_diagnostic_variable(self%id_Sdenit, 'Sdenit', 'mol N m-2 s-1',  'nitrate reduction')
       call self%register_diagnostic_variable(self%id_ironsed, 'ironsed', 'mol Fe m-2 s-1',  'iron inputs')
+      call self%register_diagnostic_variable(self%id_cflux_diag, 'cflux_diag', 'mmol C m-2 s-1',  'diagnostic of cflux')
+      call self%register_diagnostic_variable(self%id_zwstpoc_diag, 'zwstpoc_diag', 'nanomol C m-2 s-1', 'diagnostic of zwstpoc')
+      call self%register_diagnostic_variable(self%id_hydrofe_diag, 'hydrofe_diag','mol Fe L-1 s-1', 'diagnostic of hydrofe')
 
       call self%register_dependency(self%id_cflux,  'cflux',   'mmol C m-2 s-1',  'bottom carbon flux')
       call self%register_dependency(self%id_siflux, 'siflux',  'mmol Si m-2 s-1', 'bottom silica flux')
       call self%register_dependency(self%id_calflux,'calflux', 'mmol m-2 s-1',    'bottom calcite flux')
+
+      call self%register_dependency(self%id_hydrofe, iron_hydrothermal_source)
+      !call self%register_dependency(self%id_cell_area, cell_area)
+      call self%register_dependency(self%id_cell_area, standard_variables%cell_area)
+      call self%register_dependency(self%id_e3t_n, standard_variables%cell_thickness)
 
       call self%register_state_dependency(self%id_no3, 'no3', 'mol C L-1', 'nitrate')
       call self%register_state_dependency(self%id_nh4, 'nh4', 'mol C L-1', 'ammonium')
@@ -133,8 +148,12 @@ contains
           _SET_BOTTOM_DIAGNOSTIC_(self%id_ironsed, ironsed * 1.e+3_rk)
          ENDIF
 
+         _SET_BOTTOM_DIAGNOSTIC_(self%id_cflux_diag, cflux)
+
          zrivno3 = 1. - zbureff
          zwstpoc = cflux * 1E-6_rk
+         _SET_BOTTOM_DIAGNOSTIC_(self%id_zwstpoc_diag, zwstpoc)
+
          zpdenit  = MIN( 0.5_rk * ( no3 - rtrn ) / rdenit / maxdt, zdenit2d * zwstpoc * zrivno3 )   ! Jorn: Eq 90a, added maxdt because the entire expression is now a rate rather than an increment
          z1pdenit = zwstpoc * zrivno3 - zpdenit   ! Jorn: Eq 90b except for the o2ut scale factor
          zolimit = MIN( ( oxy - rtrn ) / o2ut / maxdt, z1pdenit * ( 1.- nitrfac ) )   ! Jorn: added maxdt because the entire expression is now a rate rather than an increment
@@ -149,5 +168,31 @@ contains
          _SET_BOTTOM_DIAGNOSTIC_(self%id_SedC, (1. - zrivno3) * zwstpoc * 1.e+3_rk)
       _BOTTOM_LOOP_END_
    end subroutine
+
+   subroutine do(self, _ARGUMENTS_DO_)
+      class (type_pisces_sediment), intent(in) :: self 
+      _DECLARE_ARGUMENTS_DO_
+
+      real(rk) :: carea, e3t_n, sf_hydrofe, hydrofe
+      real(rk), parameter :: ryyss    = nyear_len * rday    ! number of seconds per year, Jorn: nyear_len should account for leap years, calendars, etc.
+
+      _LOOP_BEGIN_
+
+      _GET_SURFACE_(self%id_cell_area, carea)
+      _GET_(self%id_e3t_n, e3t_n)
+      _GET_(self%id_hydrofe, sf_hydrofe)
+
+      hydrofe = ( MAX( rtrn , sf_hydrofe ) * self%hratio ) &
+       &       / ( carea * e3t_n * ryyss + rtrn ) / 1000._rk
+
+      _SET_DIAGNOSTIC_(self%id_hydrofe_diag, hydrofe * 1.e+3)
+
+      IF(self%ln_hydrofe) &
+        & _ADD_SOURCE_(self%id_fer, + hydrofe)
+
+
+
+      _LOOP_END_
+  end subroutine
 
 end module

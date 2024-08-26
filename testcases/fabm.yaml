@@ -305,6 +305,7 @@ instances:
     model: pisces/sediment
     parameters:
       ln_ironsed: false
+      ln_hydrofe: false
     coupling:
       no3: no3/c
       nh4: nh4/c
