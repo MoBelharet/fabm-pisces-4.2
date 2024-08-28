@@ -20,6 +20,8 @@ add_library(fabm_models_pisces OBJECT
             iron.F90
             dust.F90
             sediment.F90
+	    ice.F90
+	    hydrothermal_sources.F90
            )
 
    #add_dependencies(fabm_models_pisces fabm_base)

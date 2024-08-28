@@ -19,6 +19,8 @@ module pisces_model_library
    use pisces_nitrogen_fixation
    use pisces_dust
    use pisces_sediment
+   use pisces_ice
+   use pisces_hydrothermal_sources
 
    implicit none
 
@@ -56,6 +58,8 @@ contains
          case ('iron');                allocate(type_pisces_iron::model)
          case ('dust');                allocate(type_pisces_dust::model)
          case ('sediment');            allocate(type_pisces_sediment::model)
+         case ('ice');                 allocate(type_pisces_ice::model)
+         case ('hydrothermal_sources'); allocate(type_pisces_hydrothermal_sources::model)
          ! Add new models here
          case default
             call self%type_base_model_factory%create(name, model)

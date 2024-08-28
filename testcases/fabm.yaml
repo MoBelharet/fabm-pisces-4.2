@@ -1,4 +1,4 @@
-log: true
+log: false
 instances:
   optics:
     model: pisces/optics
@@ -53,7 +53,7 @@ instances:
     long_name: small particulate organic matter
     model: pisces/pom
     parameters:
-      ws: 0. #2
+      ws: 2
       solgoc: 0
       mlvar: true
     initialization:
@@ -69,7 +69,7 @@ instances:
     parameters:
       has_silicon: true
       has_calcite: true
-      ws: 0. #50
+      ws: 50
     initialization:
       c: 1.e-8
       fe: 5.e-14
@@ -318,13 +318,10 @@ instances:
       iron_hydrothermal_source: zero
   dust:
     model: pisces/dust
-    parameters:
-      ln_ironice: false
     coupling:
       po4: po4/c
       sil: sil/si
       fer: fer/fe
-      fmmflx: zero_hz
       dustdep: zero_hz
   pco2:
     model: surface_constant
@@ -337,10 +334,17 @@ instances:
       standard_name: surface_air_pressure
       value: 101325.
   ice:
-    model: surface_constant
-    parameters:
-      standard_name: ice_area_fraction
-      value: 0
+    model: pisces/ice
+    use: true
+    coupling:
+      fer: fer/fe
+      fmmflx: zero_hz
+  hydrothermal:
+    model: pisces/hydrothermal_sources
+    use: true
+    coupling:
+      fer: fer/fe
+      iron_hydrothermal_source: zero
   vertical_distribution:
     model: migration/vertical_distribution
     long_name: vertical_points_where_migrators_are_present
