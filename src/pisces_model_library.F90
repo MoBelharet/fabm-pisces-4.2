@@ -21,6 +21,7 @@ module pisces_model_library
    use pisces_sediment
    use pisces_ice
    use pisces_hydrothermal_sources
+   use pisces_island_coastal_masks
 
    implicit none
 
@@ -60,6 +61,7 @@ contains
          case ('sediment');            allocate(type_pisces_sediment::model)
          case ('ice');                 allocate(type_pisces_ice::model)
          case ('hydrothermal_sources'); allocate(type_pisces_hydrothermal_sources::model)
+         case ('island_coastal_masks'); allocate(type_pisces_island_coastal_masks::model)
          ! Add new models here
          case default
             call self%type_base_model_factory%create(name, model)

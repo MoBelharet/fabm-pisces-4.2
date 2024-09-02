@@ -304,7 +304,7 @@ instances:
     long_name: sediment
     model: pisces/sediment
     parameters:
-      ln_ironsed: false
+      ln_ironsed: true
     coupling:
       no3: no3/c
       nh4: nh4/c
@@ -314,6 +314,7 @@ instances:
       oxy: oxy/O2
       doc: dom/c
       nitrfac: oxy/nitrfac
+      zcmask: bathy_topo/zcmask
   dust:
     model: pisces/dust
     coupling:
@@ -343,6 +344,10 @@ instances:
     coupling:
       fer: fer/fe
       iron_hydrothermal_source: zero
+  bathy_topo:
+    model: pisces/island_coastal_masks
+    coupling:
+      bathy_etop5: zero
   vertical_distribution:
     model: migration/vertical_distribution
     long_name: vertical_points_where_migrators_are_present

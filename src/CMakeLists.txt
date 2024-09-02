@@ -22,6 +22,7 @@ add_library(fabm_models_pisces OBJECT
             sediment.F90
 	    ice.F90
 	    hydrothermal_sources.F90
+	    island_coastal_masks.F90
            )
 
    #add_dependencies(fabm_models_pisces fabm_base)

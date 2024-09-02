@@ -12,7 +12,9 @@ module pisces_sediment
       type (type_bottom_diagnostic_variable_id) :: id_SedCal, id_SedSi, id_SedC, id_Sdenit, id_cflux_diag, id_zwstpoc_diag
       type (type_state_variable_id)             :: id_sil, id_dic, id_tal, id_oxy, id_no3, id_nh4, id_po4, id_fer, id_doc
       type (type_bottom_dependency_id)          :: id_bdepth, id_cflux, id_siflux, id_calflux
+      type (type_dependency_id)                 :: id_zcmask
       type (type_dependency_id)                 :: id_zomegaca, id_nitrfac
+!      type (type_diagnostic_variable_id)        :: id_zcmask_diag, id_e3t_0_diag
       type (type_bottom_diagnostic_variable_id) :: id_bc, id_bsi, id_bcal, id_bfe, id_ironsed
       real(rk) :: sedsilfrac = 0.03_rk
       real(rk) :: sedcalfrac = 0.99_rk
@@ -42,9 +44,15 @@ contains
       call self%register_diagnostic_variable(self%id_cflux_diag, 'cflux_diag', 'mmol C m-2 s-1',  'diagnostic of cflux')
       call self%register_diagnostic_variable(self%id_zwstpoc_diag, 'zwstpoc_diag', 'nanomol C m-2 s-1', 'diagnostic of zwstpoc')
 
+!      call self%register_diagnostic_variable(self%id_zcmask_diag, 'zcmask_diag', '1', 'diagnostic of zcmask')
+!      call self%register_diagnostic_variable(self%id_e3t_0_diag, 'e3t_0_diag', '1', 'diagnostic of e3t_0')
+
       call self%register_dependency(self%id_cflux,  'cflux',   'mmol C m-2 s-1',  'bottom carbon flux')
       call self%register_dependency(self%id_siflux, 'siflux',  'mmol Si m-2 s-1', 'bottom silica flux')
       call self%register_dependency(self%id_calflux,'calflux', 'mmol m-2 s-1',    'bottom calcite flux')
+
+
+      call self%register_dependency(self%id_zcmask, 'zcmask', '1', 'Fractional area for the bottom bathymetry')
 
       call self%register_state_dependency(self%id_no3, 'no3', 'mol C L-1', 'nitrate')
       call self%register_state_dependency(self%id_nh4, 'nh4', 'mol C L-1', 'ammonium')
@@ -86,7 +94,8 @@ contains
       real(rk) :: zsiloss, zcaloss, zrivsil, zomegaca, excess, zfactcal, zrivalk
       real(rk) :: zrivno3, zwstpoc, zpdenit, z1pdenit, zolimit
       real(rk) :: zexpide, zdenitide, ironsed
-      real(rk), parameter :: zcmask = 1._rk   ! Jorn TODO: this can now take non-zero values throughout the water column (not just in bottommost cell)
+!      real(rk), parameter :: zcmask = 1._rk   ! Jorn TODO: this can now take non-zero values throughout the water column (not just in bottommost cell)
+      real(rk) :: zcmask , e3t_0      
 
       _BOTTOM_LOOP_BEGIN_
          _GET_BOTTOM_(self%id_bdepth, gdepw_n)   ! bottom depth (m)
@@ -94,6 +103,10 @@ contains
          _GET_(self%id_oxy, oxy)
          _GET_(self%id_no3, no3)
          _GET_(self%id_nitrfac, nitrfac)
+         !--------------- Mokrane ----------
+         _GET_(self%id_zcmask, zcmask)
+         !_SET_SURFACE_DIAGNOSTIC_(self%id_zcmask_diag, zcmask)
+         !----------------------------------
 
          zflx = cflux * 1E3 / 1E4 * rday   ! Jorn: flux should be umol cm-2 d-1
          zflx  = LOG10( MAX( 1E-3_rk, zflx ) )
@@ -125,10 +138,11 @@ contains
          _SET_BOTTOM_DIAGNOSTIC_(self%id_SedSi, (1.0 - zrivsil) * zsiloss * 1.e+3_rk)
 
          ! Jorn: TODO use coast and island mask as in p4zsbc.F90, which introduces an iron flux throughout the water column
+
          zexpide   = MIN( 8._rk,( gdepw_n / 500. )**(-1.5) )                           ! Eq 85a - taken from p4zsbc.F90 but replaced cell center depth with bottom depth
          zdenitide = -0.9543 + 0.7662 * LOG( zexpide ) - 0.235 * LOG( zexpide )**2  ! Eq 85b
          ironsed = zcmask * MIN( 1._rk, EXP( zdenitide ) / 0.5 )                       ! Eq 85c
-         ironsed = self%sedfeinput * ironsed * r1_rday
+         ironsed = self%sedfeinput * ironsed * r1_rday 
 
          IF(self%ln_ironsed) THEN
           _ADD_BOTTOM_FLUX_(self%id_fer, ironsed)
@@ -155,6 +169,23 @@ contains
          _SET_BOTTOM_DIAGNOSTIC_(self%id_SedC, (1. - zrivno3) * zwstpoc * 1.e+3_rk)
       _BOTTOM_LOOP_END_
    end subroutine
+
+!   subroutine do(self, _ARGUMENTS_DO_)
+!          class (type_pisces_sediment), intent(in) :: self
+
+!          _DECLARE_ARGUMENTS_DO_
+!          real(rk) :: e3t_0, zcmask
+
+!          _LOOP_BEGIN_
+!             _GET_(self%id_e3t_0, e3t_0)
+!             _GET_(self%id_zcmask, zcmask)
+!             _SET_DIAGNOSTIC_(self%id_e3t_0_diag, e3t_0)
+!             _SET_DIAGNOSTIC_(self%id_zcmask_diag, zcmask)
+
+!          _LOOP_END_
+
+
+!   end subroutine
 
 
 end module
