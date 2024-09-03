@@ -310,11 +310,9 @@ instances:
       nh4: nh4/c
       po4: po4/c
       sil: sil/si
-      fer: fer/fe
       oxy: oxy/O2
       doc: dom/c
       nitrfac: oxy/nitrfac
-      zcmask: bathy_topo/zcmask
   dust:
     model: pisces/dust
     coupling:
@@ -344,9 +342,10 @@ instances:
     coupling:
       fer: fer/fe
       iron_hydrothermal_source: zero
-  bathy_topo:
-    model: pisces/island_coastal_masks
+  iron_sed:
+    model: pisces/iron_from_sed
     coupling:
+      fer: fer/fe
       bathy_etop5: zero
   vertical_distribution:
     model: migration/vertical_distribution
