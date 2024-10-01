@@ -333,6 +333,8 @@ instances:
   ice:
     model: pisces/ice
     use: true
+    parameters:
+      ln_ironice: false
     coupling:
       fer: fer/fe
       fmmflx: zero_hz
