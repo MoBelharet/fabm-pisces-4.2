@@ -26,7 +26,7 @@ module pisces_phytoplankton
       type (type_diagnostic_variable_id) :: id_PPPHY, id_PPNEW, id_PBSi, id_PFe
       type (type_diagnostic_variable_id) :: id_zprmax, id_Mu, id_Llight, id_zval_diag, id_zpislopead_diag, id_zrespp_diag, &
       & id_ztortp_diag,id_sizep_diag, id_etot_w_diag, id_etot_wm_diag, id_plig_diag, id_zfecm_diag, id_xno3_diag, id_xnh4_diag, &
-      & id_xfer_diag, id_zmax_diag, id_concfe_diag, id_zbiron_diag
+      & id_xfer_diag, id_zmax_diag, id_concfe_diag, id_zbiron_diag, id_etot_ndcy_diag, id_zratio_diag
 
       logical :: diatom
       logical :: calcify
@@ -124,7 +124,7 @@ contains
       call self%get_parameter(self%qfelim, 'qfelim', 'mol Fe (mol C)-1', 'optimal iron quota', default=10.e-6_rk)
       call self%get_parameter(self%fecm, 'fecm', 'mol Fe (mol C)-1', 'maximum iron quota', default=60.e-6_rk)
       call self%get_parameter(self%chlcm, 'chlcm', 'g Chl (g C)-1', 'maximum Chl / C ratio')
-      call self%get_parameter(self%chlcmin, 'chlcmin', 'g Chl (g C)-1', 'minimum Chl / C ratio', default=0.0033_rk)  ! 0.004 in namelist_pisces_ref
+      call self%get_parameter(self%chlcmin, 'chlcmin', 'g Chl (g C)-1', 'minimum Chl / C ratio', default=0.003_rk)  ! 0.004 in namelist_pisces_ref
       call self%get_parameter(self%xsize, 'xsize', 'mol C L-1', 'threshold concentration for size dependency (biomass above this threshold consists of large cells)', default=1.e-6_rk)
       call self%get_parameter(self%xmort, 'xmort', 'mol C L-1', 'threshold concentration for mortality')
       call self%get_parameter(self%wchl, 'wchl', 'd-1 (umol C L-1)-1', 'quadratic mortality', default=0.01_rk)
@@ -263,9 +263,12 @@ contains
       call self%register_diagnostic_variable(self%id_xnh4_diag, 'xnh4_diag', '-', 'diagnostic of xnh4 in phytoplankton model')
       call self%register_diagnostic_variable(self%id_xfer_diag, 'xfer_diag', '-', 'diagnostic of xfer in phytoplankton model')
       call self%register_diagnostic_variable(self%id_zmax_diag, 'zmax_diag', '-', 'diagnostic of zmax in phytoplankton model')
+      call self%register_diagnostic_variable(self%id_zratio_diag, 'zratio_diag','-', 'diagnostic of zratio in phytoplankton model')
       call self%register_diagnostic_variable(self%id_concfe_diag, 'concfe' , '-', 'diagnostic of concfe in phytoplankton model')
       call self%register_diagnostic_variable(self%id_zbiron_diag, 'zbiron', '-', 'diagnostic of zbiron in phytoplankton model')
       call self%register_diagnostic_variable(self%id_zlim1_bis, 'zlim1_bis', '-', 'diagnostic of zlim1 2 in phytoplankton model')
+
+      call self%register_diagnostic_variable(self%id_etot_ndcy_diag, 'etot_ndcy_diag', '-', 'diagnostic of etot_ndcy')
 
    end subroutine initialize
 
@@ -368,6 +371,8 @@ contains
          _GET_SURFACE_(self%id_etot_wm, etot_wm)  ! daily mean Photosynthetically Available Radiation (W m-2) weighted by absorption per waveband, averaged over mixed/euphotic layer
          _GET_SURFACE_(self%id_fr_i, fr_i)        ! sea ice area fraction (1)
          
+
+         _SET_DIAGNOSTIC_(self%id_etot_ndcy_diag, etot_ndcy)
       
 
          IF (gdept_n > hmld) etot_wm = etot_w     ! below turbocline: the experienced daily mean PAR is the actual in-situ value (not the average over the mixing layer)
@@ -382,6 +387,7 @@ contains
          ! Jorn: From p4zlim
 
          _GET_(self%id_sizep_prev, sizep)
+
          
          z1_trb   = 1._rk / ( c + rtrn )         ! 1 / carbon biomass
          concfe = self%concfer * sizep**0.81    ! sizep is the equivalent of sizen and sized in the original version
@@ -437,11 +443,11 @@ contains
 
            zironmin = xcoef1 * ch * z1_trb + xcoef2 * zlim1 + xcoef3 * xno3
            xqfuncfec = zironmin + self%qfelim
-           zlim4    = MAX( 0._rk,( zratio - zironmin ) / self%qfelim ) 
+           zlim4    =  MAX( 0._rk,( zratio - zironmin ) / self%qfelim ) 
            xpo4 = zlim2
            xlimfe = MIN( 1._rk, zlim4 )
            xlim = MIN( zlim1, zlim2, zlim3, zlim4 )   ! Jorn: Eq 11a, combined N, P, (Si), Fe limitation factor (dimensionless)
-           
+      
            !--Mokrane----
            !if(self%diatom) xlim = zlim1
            !----------------
@@ -478,13 +484,11 @@ contains
                   zmxl_fac = 0._rk
           ENDIF
           _SET_DIAGNOSTIC_(self%id_zval_diag, zmxl_fac)
-
+             
 
             zpr = zprmax * zmxl_fac  ! Jorn: product of muP and f1*f2 (sort of - those have been changed) in Eq 2a, units are 1/s
-            !--- Mokrane ---
-            !zmxl_fac = 1._rk
-            !--------------
-                
+            
+
           IF( etot_ndcy > 1.E-3 ) THEN
             zpislopead = self%pislope * ch  /( c * 12. + rtrn)
 
@@ -552,6 +556,7 @@ contains
             zpr = zpr * ( 1._rk - fr_i )   ! Jorn: production was computed using PAR in ice-free water; here that is converted into production over the entire cell (ice-free + ice-covered fractions)
 
             ! Computation of the various production terms
+            
             zprorca = zpr  * xlim* c            ! total production (mol C/L/s), dropped multiplication with rfact2 [time step in seconds]
             zpronew  = zprorca* xno3 / ( xno3 + xnh4 + rtrn )  ! Eq 8, new production (mol C/L/s)
             !
@@ -575,6 +580,7 @@ contains
             _SET_DIAGNOSTIC_(self%id_xnh4_diag, xnh4)
             _SET_DIAGNOSTIC_(self%id_xfer_diag, xfer)
             _SET_DIAGNOSTIC_(self%id_zmax_diag, zmax)
+            _SET_DIAGNOSTIC_(self%id_zratio_diag, zratio)
             
             !****************************************************************
 
@@ -630,7 +636,6 @@ contains
          _ADD_SOURCE_(self%id_po4, - zprorca)
          _ADD_SOURCE_(self%id_no3, - zpronew)
          _ADD_SOURCE_(self%id_nh4, - zproreg)
-         !if(self%calcify) 
          _ADD_SOURCE_(self%id_c, zprorca * self%texcret)
          _ADD_SOURCE_(self%id_fe, zprofe * self%texcret)
          _ADD_SOURCE_(self%id_doc, zdocprod)
@@ -727,7 +732,7 @@ contains
          end if
 
          ! Jorn: from p4zmort.F90
-         zcompa = MAX( ( c - self%xmort ), 0.e0_rk )
+         zcompa = MAX( ( c - self%xmort ), 0.e0_rk)
 
          _SET_DIAGNOSTIC_(self%id_zcompa_diag, zcompa)
 
@@ -751,20 +756,14 @@ contains
          !     Phytoplankton mortality. This mortality loss is slightly
          !     increased when nutrients are limiting phytoplankton growth
          !     as observed for instance in case of iron limitation.
-         ztortp = self%mprat * xstep * zcompa * c / ( self%xkmort + c )    ! Jorn: hyperbolic part of 5th term in Eq 37, except for zsizerat, minimum threshold in zcompa
-
-
+       
          zmortp = zrespp + ztortp  
 
-         
-         !-- Mokrane ---
-         !if(self%calcify) zmortp = 0._rk
 
          !   Update the arrays TRA which contains the biological sources and sinks
 
          zfactfe = fe * z1_trb
          zfactch = ch * z1_trb
-         !if(self%calcify) 
          _ADD_SOURCE_(self%id_c, - zmortp)  
          _ADD_SOURCE_(self%id_ch, - zmortp * zfactch)
          _ADD_SOURCE_(self%id_fe, - zmortp * zfactfe)
