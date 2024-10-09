@@ -20,8 +20,9 @@ module pisces_optics
       type (type_dependency_id)                  :: id_chltot, id_e3t_n
       type (type_surface_dependency_id)          :: id_qsr, id_par_varsw, id_hmld, id_fr_i
       type (type_horizontal_dependency_id)       :: id_qsr_mean
-      type (type_diagnostic_variable_id)         :: id_pe1, id_pe2, id_pe3, id_etot_ndcy, id_etot, id_Tchl, id_par
-      type (type_surface_diagnostic_variable_id) :: id_heup, id_heup_01, id_emoy, id_zpar, id_zqsr , id_dqsr, id_dpqsr100, id_gdepw_diag, id_par0
+      type (type_diagnostic_variable_id)         :: id_pe1, id_pe2, id_pe3, id_etot_ndcy, id_etot, id_Tchl, id_par, id_gdepw_diag, &
+                                                 &  id_zchl_diag, id_ekb_diag, id_ekg_diag, id_ekr_diag, id_irgb_diag
+      type (type_surface_diagnostic_variable_id) :: id_heup, id_heup_01, id_emoy, id_zpar, id_zqsr , id_dqsr, id_dpqsr100, id_par0
 
       logical :: ln_varpar, ln_p4z_dcyc
       real(rk) :: xparsw
@@ -77,9 +78,14 @@ contains
       call self%register_diagnostic_variable(self%id_dqsr, 'v_dqsr', 'W m-2','Real shortwave [in ice-free water]', source=source_do_column) ! Added by Mokrane to store the qsr variable
       call self%register_diagnostic_variable(self%id_dpqsr100, 'v_dpqsr100', 'm','Euphotic depth', source=source_do_column) ! Added by Mokrane to store the qsr variable
       call self%register_diagnostic_variable(self%id_Tchl, 'Tchl', 'unknown','Total chlorophyll', source=source_do_column) ! Added by Mokrane to store the zqsr_mean variable
-      call self%register_diagnostic_variable(self%id_gdepw_diag, 'gdepw_n','m','depth',source=source_do_column) ! Added by Mokrane
       call self%register_diagnostic_variable(self%id_par, 'par', 'W m-2', 'instantaneous PAR ', source=source_do_column)
       call self%register_diagnostic_variable(self%id_par0, 'par0', 'W m-2', 'instantaneous surface PAR ', source=source_do_column)
+      call self%register_diagnostic_variable(self%id_gdepw_diag,'gdepw_diag', 'm', 'diagnostic of gdepw', source=source_do_column)
+      call self%register_diagnostic_variable(self%id_zchl_diag, 'zchl_diag', 'm m-3', 'diagnostic of zchl', source=source_do_column)
+      call self%register_diagnostic_variable(self%id_ekb_diag, 'ekb_diag', '-', 'diagnostic of ekb' , source=source_do_column)
+      call self%register_diagnostic_variable(self%id_ekg_diag, 'ekg_diag', '-', 'diagnostic of ekg' , source=source_do_column)
+      call self%register_diagnostic_variable(self%id_ekr_diag, 'ekr_diag', '-', 'diagnostic of ekr' , source=source_do_column)
+      call self%register_diagnostic_variable(self%id_irgb_diag, 'irgb_diag', '-', 'diagnostic of irgb' , source=source_do_column)
    end subroutine initialize
 
    subroutine do_column(self, _ARGUMENTS_DO_COLUMN_)
@@ -144,13 +150,17 @@ contains
          _GET_(self%id_chltot, zchl3d)
          _GET_(self%id_e3t_n, e3t_n)
 
-         zchl = ( zchl3d + rtrn )                         ! dropped multiplication with 1.e6 as standard variable is already in mg/m3 = ug/L
+         zchl = ( zchl3d + rtrn )            ! dropped multiplication with 1.e6 as standard variable is already in mg/m3 = ug/L
+         _SET_DIAGNOSTIC_(self%id_zchl_diag, zchl)
+
          zchl = MIN(  10._rk , MAX( 0.05_rk, zchl )  )
          irgb = NINT( 41 + 20.* LOG10( zchl ) + rtrn )    ! determine index into R-G-B specifc attenuation coefficients based on total chlorophyll
 
          ! Jorn: ensure index is valid even if zchl is non-finite to prevent crashes due to out-of-bounds rkrgb access
          ! This in principle makes the MIN( 10. , ...) above redundant
+         
          irgb = MIN( SIZE( rkrgb, 2 ) , MAX( 1, irgb )  )
+         _SET_DIAGNOSTIC_(self%id_irgb_diag, irgb)
 
          ! Note ekb, ekg, ekr are depth-integrated attenuation coefficients,
          ! multiplied by 2 since we increment with a whole e3t_n when moving half a grid cell down.
@@ -158,6 +168,10 @@ contains
          ekb = ekb + rkrgb(1,irgb) * e3t_n
          ekg = ekg + rkrgb(2,irgb) * e3t_n
          ekr = ekr + rkrgb(3,irgb) * e3t_n
+
+         _SET_DIAGNOSTIC_(self%id_ekb_diag, ekb)
+         _SET_DIAGNOSTIC_(self%id_ekg_diag, ekg)
+         _SET_DIAGNOSTIC_(self%id_ekr_diag, ekr)
 
          ! Note that the irradiances below are all horizontally averaged over the entire grid cell and thus
          ! consider shading by ice. Compared to the original PISCES implementation, this is similar to etot3,
@@ -191,7 +205,9 @@ contains
 
          gdepw_n = gdepw_n + e3t_n
          IF (first .or. etot_ndcy >= pqsr100) heup    = gdepw_n  ! Euphotic layer depth
-         IF (first .or. etot_ndcy >= 0.1)    heup_01 = gdepw_n  ! Euphotic layer depth (light level definition)
+         IF (first .or. etot_ndcy >= 0.1) heup_01 = gdepw_n  ! Euphotic layer depth (light level definition)
+         
+         _SET_DIAGNOSTIC_(self%id_gdepw_diag,gdepw_n)
 
 
          IF (gdepw_n <= hmld) THEN

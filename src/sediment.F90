@@ -12,16 +12,18 @@ module pisces_sediment
       type (type_bottom_diagnostic_variable_id) :: id_SedCal, id_SedSi, id_SedC, id_Sdenit, id_cflux_diag, id_zwstpoc_diag
       type (type_state_variable_id)             :: id_sil, id_dic, id_tal, id_oxy, id_no3, id_nh4, id_po4, id_doc !, id_fer
       type (type_bottom_dependency_id)          :: id_bdepth, id_cflux, id_siflux, id_calflux
-!      type (type_dependency_id)                 :: id_ironsed
       type (type_dependency_id)                 :: id_zomegaca, id_nitrfac
-      type (type_bottom_diagnostic_variable_id) :: id_bc, id_bsi, id_bcal, id_bfe !, id_ironsed_diag
+      type (type_bottom_diagnostic_variable_id) :: id_bc, id_bsi, id_bcal, id_bfe 
+!      type (type_dependency_id)                  :: id_zcmask_cal, id_zcmask_ext, id_gdepw_n, id_e3t_0
+!      type (type_diagnostic_variable_id)         :: id_ironsed
+!      real(rk) :: sedfeinput
       real(rk) :: sedsilfrac = 0.03_rk
       real(rk) :: sedcalfrac = 0.99_rk
-!      real(rk) :: sedfeinput
       logical :: ln_ironsed 
    contains
       procedure :: initialize
       procedure :: do_bottom
+!      procedure :: do
    end type
 
 contains
@@ -32,26 +34,23 @@ contains
 
       call self%register_implemented_routines((/source_do_bottom/))
 
- !     call self%get_parameter(self%sedfeinput, 'sedfeinput', 'mol Fe L-1 d-1 m', 'iron flux from the sediments', default=2.e-9_rk)
+!      call self%get_parameter(self%sedfeinput, 'sedfeinput', 'mol Fe L-1 d-1 m', 'iron flux from the sediments', default=2.e-9_rk)
       call self%get_parameter(self%ln_ironsed, 'ln_ironsed', '', 'variable iron input from sediment', default=.true.)
 
       call self%register_diagnostic_variable(self%id_SedCal, 'SedCal', 'mol m-2 s-1',    'calcite burial')
       call self%register_diagnostic_variable(self%id_SedSi,  'SedSi',  'mol Si m-2 s-1', 'silica burial')
       call self%register_diagnostic_variable(self%id_SedC,   'SedC',   'mol C m-2 s-1',  'organic carbon burial')
       call self%register_diagnostic_variable(self%id_Sdenit, 'Sdenit', 'mol N m-2 s-1',  'nitrate reduction')
-      !call self%register_diagnostic_variable(self%id_ironsed, 'ironsed', 'mol Fe m-2 s-1',  'iron inputs')
+!      call self%register_diagnostic_variable(self%id_ironsed, 'ironsed', 'mol Fe m-2 s-1',  'iron inputs')
       call self%register_diagnostic_variable(self%id_cflux_diag, 'cflux_diag', 'mmol C m-2 s-1',  'diagnostic of cflux')
       call self%register_diagnostic_variable(self%id_zwstpoc_diag, 'zwstpoc_diag', 'nanomol C m-2 s-1', 'diagnostic of zwstpoc')
 
-!      call self%register_diagnostic_variable(self%id_ironsed_diag, 'ironsed_diag', '1', 'diagnostic of ironsed')
 
       call self%register_dependency(self%id_cflux,  'cflux',   'mmol C m-2 s-1',  'bottom carbon flux')
       call self%register_dependency(self%id_siflux, 'siflux',  'mmol Si m-2 s-1', 'bottom silica flux')
       call self%register_dependency(self%id_calflux,'calflux', 'mmol m-2 s-1',    'bottom calcite flux')
 
 
-      !call self%register_dependency(self%id_zcmask, 'zcmask', '1', 'Fractional area for the bottom bathymetry')
-!      call self%register_dependency(self%id_ironsed, 'ironsed', 'mol Fe m-2 s-1',  'iron inputs')
 
       call self%register_state_dependency(self%id_no3, 'no3', 'mol C L-1', 'nitrate')
       call self%register_state_dependency(self%id_nh4, 'nh4', 'mol C L-1', 'ammonium')
@@ -83,6 +82,15 @@ contains
       call self%request_coupling(self%id_cflux,'./c_sms_tot')
       call self%request_coupling(self%id_siflux, './si_sms_tot')
       call self%request_coupling(self%id_calflux, './cal_sms_tot')
+
+      
+!      call self%register_dependency(self%id_zcmask_cal, type_interior_standard_variable(name='coastal_island_mask', units='1'))
+!      call self%register_dependency(self%id_e3t_0, type_interior_standard_variable(name='ref_cell_thickness' , units='m') )
+!      call self%register_dependency(self%id_zcmask_ext, bathy_etop5)
+
+!      call self%register_dependency(self%id_gdepw_n, standard_variables%depth)
+        
+
    end subroutine
 
    subroutine do_bottom(self, _ARGUMENTS_DO_BOTTOM_)
@@ -92,7 +100,7 @@ contains
       real(rk) :: gdepw_n, cflux, oxy, no3, nitrfac, zflx, zo2, zno3, zdep, zdenit2d, zbureff
       real(rk) :: zsiloss, zcaloss, zrivsil, zomegaca, excess, zfactcal, zrivalk
       real(rk) :: zrivno3, zwstpoc, zpdenit, z1pdenit, zolimit
-      real(rk) :: zexpide, zdenitide, ironsed
+      real(rk) :: zexpide, zdenitide!, ironsed
 !      real(rk), parameter :: zcmask = 1._rk   ! Jorn TODO: this can now take non-zero values throughout the water column (not just in bottommost cell)
       !real(rk) :: zcmask , e3t_0      
 
@@ -170,22 +178,38 @@ contains
       _BOTTOM_LOOP_END_
    end subroutine
 
+
 !   subroutine do(self, _ARGUMENTS_DO_)
-!          class (type_pisces_sediment), intent(in) :: self
+!        class (type_pisces_sediment), intent(in) :: self
 
 !          _DECLARE_ARGUMENTS_DO_
-!          real(rk) :: e3t_0, zcmask
+!             real(rk) :: zcmask_cal, zcmask_ext, gdepw_n
+!             real(rk) :: zcmask, zexpide, zdenitide, ironsed, e3t_0
 
 !          _LOOP_BEGIN_
-!             _GET_(self%id_e3t_0, e3t_0)
-!             _GET_(self%id_zcmask, zcmask)
-!             _SET_DIAGNOSTIC_(self%id_e3t_0_diag, e3t_0)
-!             _SET_DIAGNOSTIC_(self%id_zcmask_diag, zcmask)
+!                _GET_(self%id_zcmask_cal, zcmask_cal)
+!                _GET_(self%id_zcmask_ext, zcmask_ext)
+!                _GET_(self%id_gdepw_n, gdepw_n)
+!                _GET_(self%id_e3t_0, e3t_0)
+
+!                zcmask = zcmask_cal + zcmask_ext
+
+!                zexpide   = MIN( 8._rk,( gdepw_n / 500. )**(-1.5) )                           ! Eq 85a - taken from p4zsbc.F90 but replaced cell center depth with bottom depth
+!                zdenitide = -0.9543 + 0.7662 * LOG( zexpide ) - 0.235 * LOG( zexpide )**2  ! Eq 85b
+!                ironsed = zcmask * MIN( 1._rk, EXP( zdenitide ) / 0.5 )                       ! Eq 85c
+!                ironsed = self%sedfeinput * ironsed * r1_rday / e3t_0
+
+!                _SET_DIAGNOSTIC_(self%id_ironsed, ironsed * 1.e3_rk)
+
+                !IF(self%ln_ironsed) 
+!                _ADD_SOURCE_(self%id_fer, ironsed)
+
+
 
 !          _LOOP_END_
 
+!  end subroutine
 
-!   end subroutine
 
 
 end module

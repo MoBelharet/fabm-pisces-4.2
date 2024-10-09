@@ -16,7 +16,7 @@ module pisces_phytoplankton
       type (type_state_variable_id)     :: id_no3, id_nh4, id_po4, id_sil, id_biron, id_doc, id_dic, id_tal, id_oxy
       type (type_state_variable_id)     :: id_poc, id_sfe, id_goc, id_gsi, id_bfe, id_cal, id_prodpoc, id_prodgoc
       type (type_dependency_id)         :: id_tem, id_gdept_n, id_xdiss, id_plig  , id_sizep_prev
-      type (type_dependency_id)         :: id_pe1, id_pe2, id_pe3, id_etot_ndcy, id_etot_w
+      type (type_dependency_id)         :: id_pe1, id_pe2, id_pe3, id_etot_ndcy, id_etot_w , id_gdepw_n
       type (type_surface_dependency_id) :: id_zstrn, id_hmld, id_heup_01, id_etot_wm
       type (type_surface_dependency_id) :: id_gphit, id_fr_i, id_xksi_
       type (type_horizontal_dependency_id) :: id_xksi
@@ -26,7 +26,7 @@ module pisces_phytoplankton
       type (type_diagnostic_variable_id) :: id_PPPHY, id_PPNEW, id_PBSi, id_PFe
       type (type_diagnostic_variable_id) :: id_zprmax, id_Mu, id_Llight, id_zval_diag, id_zpislopead_diag, id_zrespp_diag, &
       & id_ztortp_diag,id_sizep_diag, id_etot_w_diag, id_etot_wm_diag, id_plig_diag, id_zfecm_diag, id_xno3_diag, id_xnh4_diag, &
-      & id_xfer_diag, id_zmax_diag, id_concfe_diag, id_zbiron_diag, id_etot_ndcy_diag, id_zratio_diag
+      & id_xfer_diag, id_zmax_diag, id_concfe_diag, id_zbiron_diag, id_etot_ndcy_diag, id_zratio_diag, id_zval_cond, id_hmld_diag, id_heup_01_diag
 
       logical :: diatom
       logical :: calcify
@@ -61,7 +61,7 @@ module pisces_phytoplankton
    type, extends(type_base_model) :: type_par
       type (type_surface_dependency_id) :: id_hmld, id_heup_01
       type (type_dependency_id) :: id_pe1, id_pe2, id_pe3, id_e3t_n
-      type (type_diagnostic_variable_id) :: id_etot
+      type (type_diagnostic_variable_id) :: id_etot, id_gdepw
       type (type_surface_diagnostic_variable_id) :: id_etotm
       real(rk) :: beta1, beta2, beta3
    contains
@@ -191,9 +191,11 @@ contains
       call self%register_dependency(self%id_etot_ndcy, 'etot_ndcy', 'W m-2', 'daily mean PAR')
       call self%register_dependency(self%id_etot_w, 'etot_w', 'W m-2', 'daily mean PAR weighted by wavelength-specific absorption coefficients')
       call self%register_dependency(self%id_etot_wm, 'etot_wm', 'W m-2', 'daily mean PAR weighted by wavelength-specific absorption coefficients, averaged over euphotic layer')
+      call self%register_dependency(self%id_gdepw_n, 'gdepw_n', 'm', 'grid cell depth on a w grid of nemo')
       call self%register_dependency(self%id_fr_i, standard_variables%ice_area_fraction)
       call self%request_coupling(self%id_etot_w, 'par/etot')
       call self%request_coupling(self%id_etot_wm, 'par/etotm')
+      call self%request_coupling(self%id_gdepw_n, 'par/gdepw')
 
       call self%register_dependency(self%id_plig, 'plig', '1','Fraction of ligands')
 
@@ -244,6 +246,7 @@ contains
       call self%register_diagnostic_variable(self%id_sizea, 'sizea','-','Mean relative size at next time-step')
 
       call self%register_diagnostic_variable(self%id_zval_diag, 'zval_diag','-','diagnostic of zval')
+      call self%register_diagnostic_variable(self%id_zval_cond, 'zval_cond','-','zval conditions' )
       call self%register_diagnostic_variable(self%id_zpislopead_diag, 'zpislopead_diag','-','diagnostic of zpislopead')
       call self%register_diagnostic_variable(self%id_zrespp_diag, 'zrespp_diag', '-' , 'diagnostic of zrespp')
       call self%register_diagnostic_variable(self%id_ztortp_diag, 'ztortp_diag', '-', 'diagnostic of ztortp')
@@ -269,6 +272,8 @@ contains
       call self%register_diagnostic_variable(self%id_zlim1_bis, 'zlim1_bis', '-', 'diagnostic of zlim1 2 in phytoplankton model')
 
       call self%register_diagnostic_variable(self%id_etot_ndcy_diag, 'etot_ndcy_diag', '-', 'diagnostic of etot_ndcy')
+      call self%register_diagnostic_variable(self%id_hmld_diag, 'hmld_diag', '-', 'diagnostic of hmld')
+      call self%register_diagnostic_variable(self%id_heup_01_diag, 'heup_01_diag', '-', 'diagnostic of heup_01')
 
    end subroutine initialize
 
@@ -280,6 +285,7 @@ contains
 
       call self%register_diagnostic_variable(self%id_etot, 'etot', 'W m-2', 'daily mean PAR (sum over all wavebands, weighted by absorption coefficients)', source=source_do_column)
       call self%register_diagnostic_variable(self%id_etotm, 'etotm', 'W m-2', 'daily mean PAR averaged over mixed layer (sum over all wavebands, weighted by absorption coefficients)', source=source_do_column)
+      call self%register_diagnostic_variable(self%id_gdepw,'gdepw', 'm', 'depth on a w-grid', source=source_do_column)
       call self%register_dependency(self%id_pe1, 'pe1', 'W m-2', 'daily mean PAR in blue waveband')
       call self%register_dependency(self%id_pe2, 'pe2', 'W m-2', 'daily mean PAR in green waveband')
       call self%register_dependency(self%id_pe3, 'pe3', 'W m-2', 'daily mean PAR in red waveband')
@@ -308,6 +314,7 @@ contains
          etot = self%beta1 * pe1 + self%beta2 * pe2 + self%beta3 * pe3   ! Eq 5b, daily mean PAR weighted by waveband-specific absorption
          _SET_DIAGNOSTIC_(self%id_etot, etot)
          gdepw_n = gdepw_n + e3t_n
+         _SET_DIAGNOSTIC_(self%id_gdepw, gdepw_n) ! Mokrane
          IF (gdepw_n <= MIN(hmld, heup_01)) THEN
             zetmp1 = zetmp1 + etot * e3t_n
             zdepmoy = gdepw_n
@@ -329,7 +336,7 @@ contains
 
       real(rk) :: c, ch, fe, si, fer
       real(rk) :: nh4, no3, po4, biron, sil
-      real(rk) :: tem, gdept_n, zstrn, hmld, heup_01, etot_ndcy, etot_w, etot_wm, gphit, fr_i
+      real(rk) :: tem, gdept_n, zstrn, hmld, heup_01, etot_ndcy, etot_w, etot_wm, gphit, fr_i, gdepw_n
       real(rk) :: tgfunc, zconc, zconc2, z1_trb, concfe, zconcno3, zconcnh4, zdenom, xno3, xnh4, xpo4, zlim1, zlim2, xlim, xlimsi, xfer
       real(rk) :: xksi, zlim3, sizep, sizep_prev
       real(rk) :: zratio, zironmin, zlim4, xlimfe, xqfuncfec, znutlimtot, zlimno3, zlimnh4
@@ -341,7 +348,7 @@ contains
       real(rk) :: ztem1, ztem2, zetot1, zetot2, xfracal
       real(rk) :: xfraresp, xfratort, zcompa, zsizerat, zrespp, ztortp, zmortp, zfactfe, zfactch, zfactsi, zprcaca, xdiss
       real(rk) :: zbiron, plig, znutlim, faf, zfalim, sizea, zcoef
-      real(rk) :: zratiosi, zmaxsi, consfe3, zfecm, zlimfac, zsizetmp
+      real(rk) :: zratiosi, zmaxsi, consfe3, zfecm, zlimfac, zsizetmp, zval_cond
 
 
       _LOOP_BEGIN_
@@ -370,6 +377,7 @@ contains
          _GET_(self%id_etot_w, etot_w)            ! daily mean Photosynthetically Available Radiation (W m-2) weighted by absorption per waveband
          _GET_SURFACE_(self%id_etot_wm, etot_wm)  ! daily mean Photosynthetically Available Radiation (W m-2) weighted by absorption per waveband, averaged over mixed/euphotic layer
          _GET_SURFACE_(self%id_fr_i, fr_i)        ! sea ice area fraction (1)
+         _GET_(self%id_gdepw_n, gdepw_n)
          
 
          _SET_DIAGNOSTIC_(self%id_etot_ndcy_diag, etot_ndcy)
@@ -473,17 +481,22 @@ contains
 
          IF( etot_ndcy > 1.E-3 ) THEN
             zval = MAX( 1._rk, zstrn )   ! Jorn: clip day length to a minimum of 1 hour
+            zval_cond = 0.5
             IF( gdept_n <= hmld ) THEN
-               zval = zval * MIN(1._rk, heup_01 / ( hmld + rtrn ))   ! Jorn: when in mixing layer, multiply with fraction of time spent in euphotic depth; it seems to be an easier-to-understand substitute for Eq 3b-3d
+               zval = zval * MIN(1._rk, heup_01 / ( hmld + rtrn ))   ! Jorn: when in mixing layer, multiply with fraction of time spent in euphotic depth; it seems to be an easier-to-understand substitute for Eq 3b-3da
+               zval_cond = 1.
             ENDIF
             zmxl_chl = zval / 24._rk  ! Jorn: from number of hours to fraction of day
             !zmxl_fac = 1.5_rk * zval / ( 12._rk + zval )  ! Jorn: Eq 3a in PISCES-v2 paper - but note that time spent in euphotic layer has already been incorporated in zval! Eqs 3b-3d are not used
             zmxl_fac = 1._rk - exp( -0.26 * zval ) !self%fpday * zval / ( 12._rk + zval )  ! AC 07.12.2021 - fpday as parameter
 
-          ELSE
+         ELSE
                   zmxl_fac = 0._rk
-          ENDIF
-          _SET_DIAGNOSTIC_(self%id_zval_diag, zmxl_fac)
+         ENDIF
+          _SET_DIAGNOSTIC_(self%id_zval_diag, zval)
+          _SET_DIAGNOSTIC_(self%id_zval_cond, zval_cond)
+          _SET_DIAGNOSTIC_(self%id_hmld_diag, hmld)
+          _SET_DIAGNOSTIC_(self%id_heup_01_diag, heup_01)
              
 
             zpr = zprmax * zmxl_fac  ! Jorn: product of muP and f1*f2 (sort of - those have been changed) in Eq 2a, units are 1/s
@@ -756,6 +769,8 @@ contains
          !     Phytoplankton mortality. This mortality loss is slightly
          !     increased when nutrients are limiting phytoplankton growth
          !     as observed for instance in case of iron limitation.
+
+         ztortp = self%mprat * xstep * zcompa * c / ( self%xkmort + c )     ! Jorn: hyperbolic part of 5th term in Eq 37 except for zsizerat, minimum threshold in zcompa
        
          zmortp = zrespp + ztortp  
 

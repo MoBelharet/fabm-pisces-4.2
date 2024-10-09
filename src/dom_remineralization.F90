@@ -162,7 +162,7 @@ contains
          zammonic = zremikc * nitrfac * doc
          denitr  = zammonic * ( 1._rk - nitrfac2 )
          denitr  = MAX(0._rk, MIN(  ( no3 - rtrn ) / rdenit, denitr ) )
-         zoxyremc          = MAX(0., zammonic - denitr)
+         zoxyremc          = MAX(0._rk, zammonic - denitr)
          !
 
          _ADD_SOURCE_(self%id_po4, + zolimi + denitr + zoxyremc)

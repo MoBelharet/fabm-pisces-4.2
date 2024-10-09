@@ -11,10 +11,15 @@ module pisces_carbonate_chemistry
    type, extends(type_base_model), public :: type_pisces_carbonate_chemistry
       type (type_state_variable_id) :: id_dic
       type (type_state_variable_id) :: id_tal
-      type (type_dependency_id) :: id_tempis, id_salinprac, id_rhop, id_sil, id_po4, id_zpres, id_h2co3, id_hi_old
-      type (type_surface_dependency_id) :: id_wndm, id_fr_i, id_patm, id_satmco2
-      type (type_diagnostic_variable_id) :: id_ph, id_hi, id_CO3, id_CO3sat, id_zomegaca, id_zh2co3
+      type (type_dependency_id) :: id_tempis, id_salinprac, id_rhop, id_sil, id_po4, id_h2co3, id_hi_old, id_gdept_n
+      type (type_surface_dependency_id) :: id_wndm, id_fr_i, id_patm, id_satmco2, id_gphit
+      type (type_diagnostic_variable_id) :: id_ph, id_hi, id_CO3, id_CO3sat, id_zomegaca, id_zh2co3, id_zpres_diag, id_zhi_diag, id_rhop_diag
       type (type_surface_diagnostic_variable_id) :: id_Cflx, id_Kg, id_Dpco2, id_pCO2sea
+      type (type_surface_diagnostic_variable_id) :: id_zfld_diag, id_zflu_diag, id_chemc1_diag, id_chemc2_diag, id_chemc3_diag, id_zh2co3_diag, id_zfco2_diag
+      type (type_surface_diagnostic_variable_id) :: id_zpco2atm_diag, id_zfugcoeff_diag, id_ztkel_diag, id_zsal_diag
+      type (type_diagnostic_variable_id) :: id_borat_diag, id_sulfat_diag, id_fluorid_diag, id_ak13_diag, id_ak23_diag, id_akb3_diag, id_akw3_diag, id_aks3_diag, id_akf3_diag, &
+                                    &       id_ak1p3_diag, id_ak2p3_diag, id_ak3p3_diag, id_aksi3_diag, id_p_hini_diag
+
    contains
       procedure :: initialize
       procedure :: do
@@ -113,13 +118,49 @@ contains
       call self%register_diagnostic_variable(self%id_Dpco2, 'Dpco2', 'uatm', 'delta pCO2')
       call self%register_diagnostic_variable(self%id_pCO2sea, 'pCO2sea', 'uatm', 'surface ocean pCO2')
 
+      !----- Mokrane ------
+
+      call self%register_diagnostic_variable(self%id_zfld_diag, 'zfld_diag' , '-' , 'diagnostic of zfld' )
+      call self%register_diagnostic_variable(self%id_zflu_diag, 'zflu_diag' , '-' , 'diagnostic of zflu' )
+      call self%register_diagnostic_variable(self%id_chemc1_diag, 'chemc1_diag' , '-' , 'diagnostic of chemc1' )
+      call self%register_diagnostic_variable(self%id_chemc2_diag, 'chemc2_diag'  , '-' , 'diagnostic of chemc2' )
+      call self%register_diagnostic_variable(self%id_chemc3_diag, 'chemc3_diag' , '-' , 'diagnostic of chemc3' )
+      call self%register_diagnostic_variable(self%id_zh2co3_diag, 'zh2co3_diag' , '-' , 'diagnostic of zh2co3' )
+      call self%register_diagnostic_variable(self%id_zfco2_diag,  'zfco2_diag' , '-' , 'diagnostic of zfco2' )
+      call self%register_diagnostic_variable(self%id_zpco2atm_diag, 'zpco2atm_diag' , '-' , 'diagnostic of zpco2atm' )
+      call self%register_diagnostic_variable(self%id_zfugcoeff_diag, 'zfugcoeff_diag' , '-' , 'diagnostic of zfugcoeff' )
+      call self%register_diagnostic_variable(self%id_ztkel_diag, 'ztkel_diag' , '-' ,  'diagnostic of ztkel' )
+      call self%register_diagnostic_variable(self%id_zsal_diag, 'zsal_diag' , '-' ,  'diagnostic of zsal' )
+      call self%register_diagnostic_variable(self%id_zpres_diag, 'zpres_diag', '-', 'diagnostic of zpres' )
+      call self%register_diagnostic_variable(self%id_zhi_diag, 'zhi_diag', '-', 'diagnostic of zhi' )
+      call self%register_diagnostic_variable(self%id_rhop_diag, 'rhop_diag', '-', 'diagnostic of rhop' )
+
+      call self%register_diagnostic_variable(self%id_borat_diag, 'borat_diag','-' ,'diagnostic of borat' )
+      call self%register_diagnostic_variable(self%id_sulfat_diag,  'sulfat_diag','-', 'diagnostic of sulfat' )
+      call self%register_diagnostic_variable(self%id_fluorid_diag, 'fluorid_diag' ,'-', 'diagnostic of fluorid' )
+      call self%register_diagnostic_variable(self%id_ak13_diag, 'ak13_diag' ,'-', 'diagnostic of ak13' )
+      call self%register_diagnostic_variable(self%id_ak23_diag, 'ak23_diag' ,'-', 'diagnostic of ak23' )
+      call self%register_diagnostic_variable(self%id_akb3_diag, 'akb3_diag' ,'-', 'diagnostic of akb3' ) 
+      call self%register_diagnostic_variable(self%id_akw3_diag, 'akw3_diag' ,'-', 'diagnostic of akw3' )
+      call self%register_diagnostic_variable(self%id_aks3_diag, 'aks3_diag' ,'-', 'diagnostic of aks3 ' )
+      call self%register_diagnostic_variable(self%id_akf3_diag, 'akf3_diag' ,'-', 'diagnostic of akf3' )
+      call self%register_diagnostic_variable(self%id_ak1p3_diag, 'ak1p3_diag' ,'-', 'diagnostic of ak1p3' )
+      call self%register_diagnostic_variable(self%id_ak2p3_diag, 'ak2p3_diag' ,'-', 'diagnostic of ak2p3' )
+      call self%register_diagnostic_variable(self%id_ak3p3_diag, 'ak3p3_diag' ,'-', 'diagnostic of ak3p3' )
+      call self%register_diagnostic_variable(self%id_aksi3_diag, 'aksi3_diag' ,'-', 'diagnostic of aksi3' )
+      call self%register_diagnostic_variable(self%id_p_hini_diag, 'p_hini_diag' ,'-', 'diagnostic of p_hini' )
+
+      !----------------------
+
       call self%register_dependency(self%id_tempis, standard_variables%temperature) ! TODO should be in-situ temperature (as opposed to conservative/potential)
       call self%register_dependency(self%id_salinprac, standard_variables%practical_salinity)
       call self%register_dependency(self%id_wndm, standard_variables%wind_speed)
       call self%register_dependency(self%id_fr_i, standard_variables%ice_area_fraction)
       call self%register_dependency(self%id_patm, standard_variables%surface_air_pressure)
       call self%register_dependency(self%id_rhop, standard_variables%density)
-      call self%register_dependency(self%id_zpres, standard_variables%pressure)
+      !call self%register_dependency(self%id_zpres, standard_variables%pressure)
+      call self%register_dependency(self%id_gphit, standard_variables%latitude)
+      call self%register_dependency(self%id_gdept_n, standard_variables%depth)
       call self%register_dependency(self%id_po4, 'po4', 'mol C L-1', 'phosphate')
       call self%register_dependency(self%id_sil, 'sil', 'mol Si L-1', 'silicate')
       call self%register_dependency(self%id_satmco2,standard_variables%mole_fraction_of_carbon_dioxide_in_air)
@@ -143,22 +184,34 @@ contains
       real(rk) :: aksp, borat, sulfat, fluorid
       real(rk) :: p_hini, zhi, hi
       real(rk) :: zph, zh2co3, zco3, zcalcon, zfact, zomegaca, zco3sat
+      real(rk) :: zplat, zc1, lat, gdept
 
       _LOOP_BEGIN_
          _GET_(self%id_tempis, tempis)        ! in-situ temperature (TODO! currently this is the "native" temperature from the physical model, which could be conservative or potential)
          _GET_(self%id_salinprac, salinprac)  ! practical salinity (PSU)
          _GET_(self%id_rhop, rhop)            ! density (kg m-3
-         _GET_(self%id_zpres, zpres)          ! pressure (dbar)
+         !_GET_(self%id_zpres, zpres)          ! pressure (dbar)
          _GET_(self%id_dic, dic)              ! total dissolved inorganic carbon (mol C L-1)
          _GET_(self%id_tal, tal)              ! alkalinity (mol L-1)
          _GET_(self%id_sil, sil)              ! silicate (mol Si L-1)
          _GET_(self%id_po4, po4)              ! phosphate (in carbon units! mol C L-1)
+         _GET_SURFACE_(self%id_gphit, lat)
+         _GET_(self%id_gdept_n, gdept)
 
          !                             ! SET ABSOLUTE TEMPERATURE
          ztkel = tempis + 273.15_rk
-         zsal  = salinprac !(ji,jj,1) + ( 1.- tmask(ji,jj,1) ) * 35.
+         zsal  = salinprac !* 35.0 / 35.16504 !(ji,jj,1) + ( 1.- tmask(ji,jj,1) ) * 35.
 
-         zpres = zpres / 10.0 - 1.   ! Jorn: dbar -> bar from p4zchem.F90, added -1 because approximate pressure there equals 0 at 0 depth
+         ! SET PRESSION ACCORDING TO SAUNDER (1980)
+         zplat   = SIN ( ABS(lat*3.141592654/180.) )
+         zc1 = 5.92E-3 + zplat**2 * 5.25E-3
+         zpres = ((1-zc1)-SQRT(((1-zc1)**2)-(8.84E-6*gdept))) / 4.42E-6
+
+         !zpres = zpres / 10.0 - 1.   ! Jorn: dbar -> bar from p4zchem.F90, added -1 because approximate pressure there equals 0 at 0 depth
+
+         zpres = zpres / 10.0
+
+         _SET_DIAGNOSTIC_(self%id_zpres_diag, zpres)
 
          zsqrt  = SQRT( zsal )
          zsal15  = zsqrt * zsal
@@ -342,14 +395,34 @@ contains
          zhi = solve_at_general( rhop, dic, tal, po4, sil, borat, sulfat, fluorid, &
             ak13, ak23, akb3, akw3, aks3, akf3, ak1p3, ak2p3, ak3p3, aksi3, p_hini )
          hi = zhi * rhop / 1000.    ! from p4zlys.F90
+
          _SET_DIAGNOSTIC_(self%id_hi, hi)
          _SET_DIAGNOSTIC_(self%id_ph, -1. * LOG10( MAX( hi, rtrn ) ))    ! from p4zlys.F90
+
+
+         _SET_DIAGNOSTIC_(self%id_zhi_diag, zhi)
+         _SET_DIAGNOSTIC_(self%id_rhop_diag, rhop)
+
+         _SET_DIAGNOSTIC_(self%id_borat_diag, borat )
+         _SET_DIAGNOSTIC_(self%id_sulfat_diag, sulfat )
+         _SET_DIAGNOSTIC_(self%id_fluorid_diag, fluorid )
+         _SET_DIAGNOSTIC_(self%id_ak13_diag, ak13 )
+         _SET_DIAGNOSTIC_(self%id_ak23_diag, ak23 )
+         _SET_DIAGNOSTIC_(self%id_akb3_diag, akb3 )
+         _SET_DIAGNOSTIC_(self%id_akw3_diag, akw3 )
+         _SET_DIAGNOSTIC_(self%id_aks3_diag, aks3 )
+         _SET_DIAGNOSTIC_(self%id_akf3_diag, akf3 )
+         _SET_DIAGNOSTIC_(self%id_ak1p3_diag, ak1p3 )
+         _SET_DIAGNOSTIC_(self%id_ak2p3_diag, ak2p3 )
+         _SET_DIAGNOSTIC_(self%id_ak3p3_diag, ak3p3 )
+         _SET_DIAGNOSTIC_(self%id_aksi3_diag, aksi3 )
+         _SET_DIAGNOSTIC_(self%id_p_hini_diag, p_hini )
 
          ! from p4zlys.F90
          zco3 = dic * ak13 * ak23 / (zhi**2   &
             &             + ak13 * zhi + ak13 * ak23 + rtrn )
 
-         zfact    = rhop / 1000._rk
+         zfact    = rhop / 1000._rk + rtrn
 
          ! from p4zflx.F90
          zph   = MAX( hi, 1.e-10_rk ) / zfact
@@ -393,15 +466,15 @@ contains
          patm = patm * atm_per_pa                 ! convert atmospheric pressure from Pa to atm
 
          ztkel = tempis + 273.15_rk
-         zt    = ztkel * 0.01
-         zsal  = salinprac !(ji,jj,1) + ( 1.- tmask(ji,jj,1) ) * 35.
+         zt    = ztkel * 0.01_rk
+         zsal  = salinprac !* 35.0 / 35.16504 !(ji,jj,1) + ( 1.- tmask(ji,jj,1) ) * 35.
          !                             ! LN(K0) OF SOLUBILITY OF CO2 (EQ. 12, WEISS, 1980)
          !                             !     AND FOR THE ATMOSPHERE FOR NON IDEAL GAS
-         zcek1 = 9050.69/ztkel - 58.0931 + 22.2940 * LOG(zt) + zsal*(0.027766 - 0.00025888*ztkel    &
-         &       + 0.0050578e-4*ztkel**2)
+         zcek1 = 9050.69_rk/ztkel - 58.0931_rk + 22.2940_rk * LOG(zt) + zsal*(0.027766_rk - 0.00025888_rk*ztkel    &
+         &       + 0.0050578e-4_rk*(ztkel*ztkel))
 
          chemc(1) = EXP( zcek1 ) * 1E-6  ! mol/(L atm)
-         chemc(2) = -1636.75 + 12.0408*ztkel - 0.0327957*ztkel**2 + 0.0000316528*ztkel**3
+         chemc(2) = -1636.75 + 12.0408*ztkel - 0.0327957*(ztkel*ztkel) + 0.0000316528*(ztkel*ztkel*ztkel)
          chemc(3) = 57.7 - 0.118*ztkel
 
          ztc  = MIN( 35._rk, tempis )
@@ -431,7 +504,7 @@ contains
          ! Compute CO2 flux for the sea and air
          zfld = zfco2 * chemc(1) * zkgco2  ! (mol/L) * (m/s)
          zflu = zh2co3 * zkgco2                                   ! (mol/L) (m/s) ?
-         oce_co2 = ( zfld - zflu ) !* tmask(ji,jj,1) 
+         oce_co2 = ( zfld - zflu ) 
          ! compute the trend
          _ADD_SURFACE_FLUX_(self%id_dic, oce_co2)
 
@@ -439,6 +512,21 @@ contains
          _SET_SURFACE_DIAGNOSTIC_(self%id_Kg, zkgco2)
          _SET_SURFACE_DIAGNOSTIC_(self%id_Dpco2, zpco2atm - zh2co3 / (chemc(1) + rtrn))
          _SET_SURFACE_DIAGNOSTIC_(self%id_pCO2sea, zh2co3 / (chemc(1) + rtrn))
+
+
+         !--- Mokrane --
+         _SET_SURFACE_DIAGNOSTIC_(self%id_zfld_diag, zfld *1000)
+         _SET_SURFACE_DIAGNOSTIC_(self%id_zflu_diag, zflu *1000)
+         _SET_SURFACE_DIAGNOSTIC_(self%id_chemc1_diag, chemc(1) )
+         _SET_SURFACE_DIAGNOSTIC_(self%id_chemc2_diag, chemc(2) )
+         _SET_SURFACE_DIAGNOSTIC_(self%id_chemc3_diag, chemc(3) )
+         _SET_SURFACE_DIAGNOSTIC_(self%id_zh2co3_diag, zh2co3 )
+         _SET_SURFACE_DIAGNOSTIC_(self%id_zfco2_diag, zfco2)
+         _SET_SURFACE_DIAGNOSTIC_(self%id_zpco2atm_diag, zpco2atm )
+         _SET_SURFACE_DIAGNOSTIC_(self%id_zfugcoeff_diag, zfugcoeff)
+         _SET_SURFACE_DIAGNOSTIC_(self%id_ztkel_diag, ztkel)
+         _SET_SURFACE_DIAGNOSTIC_(self%id_zsal_diag, zsal)
+
       _SURFACE_LOOP_END_
    end subroutine
 

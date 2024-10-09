@@ -33,12 +33,13 @@ contains
       _DECLARE_ARGUMENTS_DO_SURFACE_
       
       real(rk)            :: nday_year, zrum, zcodel, gphit, zstrn, zargu
-      real(rk), parameter :: rpi      = 3.141592653589793_rk             !: pi
-      real(rk), parameter :: rad      = 3.141592653589793_rk / 180._rk   !: conversion from degre into radian
+      real(rk), parameter :: rpi      = 3.1415926535897931_rk              !: pi
+      real(rk), parameter :: rad      = 3.1415926535897931_rk / 180._rk   !: conversion from degre into radian
 
       ! compute the day length depending on latitude and the day
       _GET_GLOBAL_(self%id_nday_year, nday_year)
-      zrum = CEILING( nday_year - 80._rk ) / nyear_len
+      !zrum = CEILING( nday_year - 80._rk ) / nyear_len
+      zrum = ( nday_year - 80._rk)  / nyear_len
       zcodel = ASIN(  SIN( zrum * rpi * 2._rk ) * SIN( rad * 23.5_rk )  )
 
       _SURFACE_LOOP_BEGIN_

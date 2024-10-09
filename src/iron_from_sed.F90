@@ -56,7 +56,7 @@ contains
                 ironsed = zcmask * MIN( 1._rk, EXP( zdenitide ) / 0.5 )                       ! Eq 85c
                 ironsed = self%sedfeinput * ironsed * r1_rday / e3t_0
 
-                _SET_DIAGNOSTIC_(self%id_ironsed, ironsed)
+                _SET_DIAGNOSTIC_(self%id_ironsed, ironsed * 1.e3_rk)
                 _ADD_SOURCE_(self%id_fer, ironsed)
 
 
