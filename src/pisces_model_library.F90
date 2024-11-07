@@ -22,6 +22,8 @@ module pisces_model_library
    use pisces_ice
    use pisces_hydrothermal_sources
    use pisces_iron_from_sed
+   use pisces_nutrient_deposition
+   use pisces_river_inputs
 
    implicit none
 
@@ -61,7 +63,9 @@ contains
          case ('sediment');            allocate(type_pisces_sediment::model)
          case ('ice');                 allocate(type_pisces_ice::model)
          case ('hydrothermal_sources'); allocate(type_pisces_hydrothermal_sources::model)
-         case ('iron_from_sed'); allocate(type_pisces_iron_from_sed::model)
+         case ('iron_from_sed');       allocate(type_pisces_iron_from_sed::model)
+         case ('nutrient_deposition'); allocate(type_pisces_nutrient_deposition::model)
+         case ('river_inputs');         allocate(type_pisces_river_inputs::model)
          ! Add new models here
          case default
             call self%type_base_model_factory%create(name, model)

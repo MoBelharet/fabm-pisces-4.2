@@ -23,6 +23,8 @@ add_library(fabm_models_pisces OBJECT
 	    ice.F90
 	    hydrothermal_sources.F90
 	    iron_from_sed.F90
+	    nutrient_deposition.F90
+	    river_inputs.F90
            )
 
    #add_dependencies(fabm_models_pisces fabm_base)

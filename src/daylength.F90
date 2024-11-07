@@ -11,7 +11,7 @@ module pisces_daylength
    type, extends(type_base_model), public :: type_pisces_daylength
       type (type_global_dependency_id)           :: id_nday_year
       type (type_surface_dependency_id)          :: id_gphit
-      type (type_surface_diagnostic_variable_id) :: id_zstrn
+      type (type_surface_diagnostic_variable_id) :: id_zstrn, id_zcodel_diag, id_zrum_diag, id_zargu1_diag, id_zargu_diag
    contains
       procedure :: initialize
       procedure :: do_surface
@@ -26,6 +26,10 @@ contains
       call self%register_dependency(self%id_nday_year, standard_variables%number_of_days_since_start_of_the_year)
       call self%register_dependency(self%id_gphit, standard_variables%latitude)
       call self%register_diagnostic_variable(self%id_zstrn, 'zstrn', 'h', 'day length')
+      call self%register_diagnostic_variable(self%id_zcodel_diag,'zcodel_diag','-','diagnostic of zcodel') 
+      call self%register_diagnostic_variable(self%id_zrum_diag, 'zrum_diag','-','diagnostic of zrum')
+      call self%register_diagnostic_variable(self%id_zargu1_diag, 'zargu1_diag','-','diagnostic of zargu1')
+      call self%register_diagnostic_variable(self%id_zargu_diag, 'zargu_diag','-','diagnostic of zargu')
    end subroutine initialize
 
    subroutine do_surface(self, _ARGUMENTS_DO_SURFACE_)
@@ -39,17 +43,26 @@ contains
       ! compute the day length depending on latitude and the day
       _GET_GLOBAL_(self%id_nday_year, nday_year)
       !zrum = CEILING( nday_year - 80._rk ) / nyear_len
-      zrum = ( nday_year - 80._rk)  / nyear_len
+       zrum = ( nday_year - 80._rk ) / nyear_len
+
       zcodel = ASIN(  SIN( zrum * rpi * 2._rk ) * SIN( rad * 23.5_rk )  )
+      
 
       _SURFACE_LOOP_BEGIN_
          _GET_SURFACE_(self%id_gphit, gphit)
          ! day length in hours
          zstrn = 0._rk
          zargu = TAN( zcodel ) * TAN( gphit * rad )
+         _SET_SURFACE_DIAGNOSTIC_(self%id_zargu1_diag, zargu)
+
          zargu = MAX( -1._rk, MIN(  1._rk, zargu ) )
          zstrn = MAX( 0.0_rk, 24._rk - 2._rk * ACOS( zargu ) / rad / 15._rk )
          _SET_SURFACE_DIAGNOSTIC_(self%id_zstrn, zstrn)
+
+         _SET_SURFACE_DIAGNOSTIC_(self%id_zargu_diag, zargu)
+
+         _SET_SURFACE_DIAGNOSTIC_(self%id_zcodel_diag, zcodel)
+         _SET_SURFACE_DIAGNOSTIC_(self%id_zrum_diag, zrum)
       _SURFACE_LOOP_END_
    end subroutine
 

@@ -15,7 +15,7 @@ module pisces_iron
       type (type_dependency_id) :: id_zdust, id_etot_ndcy,id_chemo2,id_nitrfac, id_no3, id_consfe3_sum
       type (type_surface_dependency_id) :: id_gphit, id_fr_i
       type (type_diagnostic_variable_id) :: id_scav, id_coll, id_Fe3, id_FeL1, id_zTL1,id_xfecolagg, id_plig, id_zfeprecip, id_xcoagfe
-      type (type_diagnostic_variable_id) :: id_zkeq_diag, id_zklight_diag, id_zconsfe_diag, id_za1_diag, id_ztfe_diag
+      type (type_diagnostic_variable_id) :: id_zkeq_diag, id_zklight_diag, id_zconsfe_diag, id_za1_diag, id_ztfe_diag, id_zdust_diag
       real(rk) :: ligand, xlam1, xlamdust, kfep, wdust, light, scaveff
    contains
       procedure :: initialize
@@ -58,6 +58,7 @@ contains
       call self%register_diagnostic_variable(self%id_zconsfe_diag, 'zconsfe', '-', 'zconsfe in iron.F90')
       call self%register_diagnostic_variable(self%id_za1_diag, 'za1', '-', 'za1 in iron.F90')
       call self%register_diagnostic_variable(self%id_ztfe_diag, 'ztfe', '-', 'ztfe in iron.F90') 
+      call self%register_diagnostic_variable(self%id_zdust_diag, 'zdust_diag','mol m-3 s-1', 'diagnostic of zdust')
 
       call self%register_dependency(self%id_doc, 'doc', 'mol C L-1', 'dissolved organic carbon')
       call self%register_dependency(self%id_poc, 'poc', 'mol C L-1', 'small particulate organic carbon')
@@ -82,7 +83,7 @@ contains
       call self%register_dependency(self%id_gdept_n, standard_variables%depth)
       call self%register_dependency(self%id_tempis, standard_variables%temperature) ! TODO should be in-situ temperature (as opposed to conservative/potential)
       call self%register_dependency(self%id_salinprac, standard_variables%practical_salinity)
-      call self%register_dependency(self%id_zdust, 'zdust', 'g m-2', 'dust concentration')
+      call self%register_dependency(self%id_zdust, 'pdust', 'g m-3', 'dust concentration')
       call self%register_dependency(self%id_etot_ndcy, 'etot_ndcy', 'W m-2', 'daily mean PAR')
       call self%register_dependency(self%id_fr_i, standard_variables%ice_area_fraction)
       call self%register_dependency(self%id_chemo2, 'chemo2', 'mol O2 (L atm)-1', 'solubility')
@@ -124,28 +125,28 @@ contains
 
          ztkel = tempis + 273.15_rk
          zsal  = salinprac !(ji,jj,1) + ( 1.- tmask(ji,jj,1) ) * 35.
-         zis    = 19.924 * zsal / ( 1000.- 1.005 * zsal )
+         zis    = 19.924_rk * zsal / ( 1000._rk- 1.005_rk * zsal )
 
          fekeq  = 10**( 17.27 - 1565.7 / ztkel )
 
          ! Liu and Millero (1999) only valid 5 - 50 degC
-         ztkel1 = MAX( 5._rk , tempis ) + 273.16
-         fesol(1) = 10**(-13.486 - 0.1856* zis**0.5 + 0.3073*zis + 5254.0/ztkel1)
-         fesol(2) = 10**(2.517 - 0.8885*zis**0.5 + 0.2139 * zis - 1320.0/ztkel1 )
-         fesol(3) = 10**(0.4511 - 0.3305*zis**0.5 - 1996.0/ztkel1 )
-         fesol(4) = 10**(-0.2965 - 0.7881*zis**0.5 - 4086.0/ztkel1 )
-         fesol(5) = 10**(4.4466 - 0.8505*zis**0.5 - 7980.0/ztkel1 )
+         ztkel1 = MAX( 5._rk , tempis ) + 273.16_rk
+         fesol(1) = 10**(-13.486_rk - 0.1856_rk* zis**0.5 + 0.3073_rk*zis + 5254.0_rk/ztkel1)
+         fesol(2) = 10**(2.517_rk - 0.8885_rk*zis**0.5 + 0.2139_rk * zis - 1320.0_rk/ztkel1 )
+         fesol(3) = 10**(0.4511_rk - 0.3305_rk*zis**0.5 - 1996.0_rk/ztkel1 )
+         fesol(4) = 10**(-0.2965_rk - 0.7881_rk*zis**0.5 - 4086.0_rk/ztkel1 )
+         fesol(5) = 10**(4.4466_rk - 0.8505_rk*zis**0.5 - 7980.0_rk/ztkel1 )
 
          ! Total ligand concentration : Ligands can be chosen to be constant or variable
          ! Parameterization from Tagliabue and Voelker (2011)
          ! -------------------------------------------------
 
-         xfecolagg = self%ligand * 1E9 + MAX(0., chemo2 - oxy ) / 400.E-6
+         xfecolagg = self%ligand * 1E9_rk + MAX(0._rk, chemo2 - oxy ) / 400.E-6_rk
 
          IF( ln_ligand ) THEN  ; !ztotlig = lgw * 1E9      ! Jorn: TODO
          ELSE
             IF( ln_ligvar ) THEN
-               ztotlig =  0.09 * 0.667 * doc * 1E6 + xfecolagg
+               ztotlig =  0.09_rk * 0.667_rk * doc * 1E6_rk + xfecolagg
                ztotlig =  MIN( ztotlig, 10._rk )
             ELSE
                ztotlig = self%ligand * 1E9
@@ -162,10 +163,10 @@ contains
 
          zTL1  = ztotlig
          zkeq            = fekeq
-         zklight         = 4.77E-7 * etot * 0.5 / ( 10**(-6.3) )
+         zklight         = 4.77E-7_rk * etot * 0.5_rk / ( 10**(-6.3) )
          zconsfe =  consfe3 / ( 10**(-6.3) ) 
-         zfesatur        = zTL1 * 1E-9
-         ztfe            = (1.0 + zklight) * fer
+         zfesatur        = zTL1 * 1E-9_rk
+         ztfe            = (1.0_rk + zklight) * fer
 
          ! Fe' is the root of a 2nd order polynom
          za1 =  1. + zfesatur * zkeq + zklight +  zconsfe - zkeq * fer
@@ -177,7 +178,7 @@ contains
          _SET_DIAGNOSTIC_(self%id_za1_diag, za1)
          _SET_DIAGNOSTIC_(self%id_ztfe_diag, ztfe)
           
-         zFe3  = ( -1 * za1 + SQRT( za1**2 + 4. * ztfe * zkeq) ) / (2. * zkeq + rtrn ) ! Eq 65
+         zFe3  = ( -1 * za1 + SQRT( za1**2 + 4._rk * ztfe * zkeq) ) / (2._rk * zkeq + rtrn ) ! Eq 65
          
          zFeL1 = MAX( 0._rk, fer - zFe3 )  ! Jorn: "complexed" iron (nmol/L)
          
@@ -185,17 +186,17 @@ contains
          _SET_DIAGNOSTIC_(self%id_FeL1, zFeL1)
          _SET_DIAGNOSTIC_(self%id_zTL1, zTL1)
 
-         plig =  MAX( 0., ( zFeL1 / ( fer + rtrn ) ) )
+         plig =  MAX( 0._rk, ( zFeL1 / ( fer + rtrn ) ) )
 
          _SET_DIAGNOSTIC_(self%id_plig, plig)
 
          IF (ln_ligand) THEN
-           zfecoll = 0.5 * zFeL1 * MAX(0., ztotlig - xfecolagg) / ( ztotlig + rtrn ) 
+           zfecoll = 0.5 * zFeL1 * MAX(0._rk, ztotlig - xfecolagg) / ( ztotlig + rtrn ) 
          ELSE
             IF(ln_ligvar) THEN
-               zfecoll = 0.5 * zFeL1 * MAX(0., ztotlig - xfecolagg ) / ( ztotlig + rtrn )
+               zfecoll = 0.5 * zFeL1 * MAX(0._rk, ztotlig - xfecolagg ) / ( ztotlig + rtrn )
             ELSE
-               zfecoll = 0.5 * zFeL1 * MAX(0., 0.09 * 0.667 * doc * 1E6 )/ ( ztotlig + rtrn )
+               zfecoll = 0.5 * zFeL1 * MAX(0._rk, 0.09_rk * 0.667_rk * doc * 1E6_rk )/ ( ztotlig + rtrn )
             ENDIF
          ENDIF
 
@@ -215,21 +216,21 @@ contains
          !zfeequi = zFe3 * 1E-9
          ! precipitation of Fe3+, creation of nanoparticles
          precip = MAX( 0._rk, ( zFe3  - fe3sol ) ) * self%kfep * xstep * ( 1.0 - nitrfac )   ! Jorn: replaces Eq 62?
-         precipno3 = 2.0 * 130.0 * no3 * nitrfac * xstep * zFe3
+         precipno3 = 2.0_rk * 130.0_rk * no3 * nitrfac * xstep * zFe3
          zfeprecip = precip + precipno3
          !
-         ztrc   = MAX( ( poc + goc + cal + gsi ) * 1.e6 , rtrn)
+         ztrc   = MAX( ( poc + goc + cal + gsi ) * 1.e6_rk , rtrn)
          
-         zxlam  = MAX( 1.E-3_rk, (1. - EXP(-2 * oxy / 100.E-6 )))
-         zlam1b = 3.e-5 + ( self%xlamdust * zdust + self%xlam1 * ztrc ) * zxlam
+         zxlam  = MAX( 1.E-3_rk, (1._rk - EXP(-2 * oxy / 100.E-6_rk )))
+         zlam1b = 3.e-5_rk + ( self%xlamdust * zdust + self%xlam1 * ztrc ) * zxlam
          zscave = zFe3 * zlam1b * xstep
          
-         zlam1a   = ( 12.0  * 0.3 * doc + 9.05  * poc ) * xdiss    &
-                 &    + ( 2.49  * poc )     &
-                 &    + ( 127.8 * 0.3 * doc + 725.7 * poc )
+         zlam1a   = ( 12.0_rk  * 0.3_rk * doc + 9.05_rk  * poc ) * xdiss    &
+                 &    + ( 2.49_rk  * poc )     &
+                 &    + ( 127.8_rk * 0.3_rk * doc + 725.7_rk * poc )
 
          zaggdfea = zlam1a * xstep * zfecoll  !Eq 61a - but Brownian POC term (a4) missing
-         zlam1b   = ( 1.94 * xdiss + 1.37 ) * goc
+         zlam1b   = ( 1.94_rk * xdiss + 1.37_rk ) * goc
          zaggdfeb = zlam1b * xstep * zfecoll  ! Eq 61b
          
          xcoagfe = zlam1a + zlam1b
@@ -259,6 +260,8 @@ contains
          ! probably remains  complexed when the particle is solubilized.
          _SET_DIAGNOSTIC_(self%id_scav, 1.e9 * zscave/xstep)
          _SET_DIAGNOSTIC_(self%id_coll, 1.e9 * (zaggdfea + zaggdfeb)/xstep)
+
+         _SET_DIAGNOSTIC_(self%id_zdust_diag, zdust)
          !
          !
          !  Define the bioavailable fraction of iron
@@ -284,9 +287,9 @@ contains
          ! Additional non-conservative iron production controlled by light, e.g., photolysis, OA 2021-09-03 [from p4zsed, nitrogen fixation section]
          _GET_(self%id_etot_ndcy, etot_ndcy)
          _GET_SURFACE_(self%id_fr_i, fr_i)
-         zlight  =  ( 1.- EXP( -etot_ndcy / self%light ) ) * ( 1. - fr_i )  ! Jorn: light limitation of diazotrophs (Eq 58b), reused here for iron photolysis
-         zsoufer = zlight * 2E-11 / ( 2E-11 + fer )                         ! Jorn: limitation factor that is 1 when ambient iron is zero, and 0 in iron-replete environments
-         _ADD_SOURCE_(self%id_fer, + 0.002 * 4E-10 * zsoufer / rday)        ! Jorn : dropped multiplication with rfact2 [time step in seconds]
+         zlight  =  ( 1._rk- EXP( -etot_ndcy / self%light ) ) * ( 1. - fr_i )  ! Jorn: light limitation of diazotrophs (Eq 58b), reused here for iron photolysis
+         zsoufer = zlight * 2E-11_rk / ( 2E-11_rk + fer )                         ! Jorn: limitation factor that is 1 when ambient iron is zero, and 0 in iron-replete environments
+         _ADD_SOURCE_(self%id_fer, + 0.002_rk * 4E-10_rk * zsoufer / rday)        ! Jorn : dropped multiplication with rfact2 [time step in seconds]
 
       _LOOP_END_
    end subroutine

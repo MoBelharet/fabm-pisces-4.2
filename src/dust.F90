@@ -11,8 +11,8 @@ module pisces_dust
    type, extends(type_base_model), public :: type_pisces_dust
       type (type_surface_dependency_id)          :: id_dustdep
       type (type_dependency_id)                  :: id_gdept_n 
-      type (type_diagnostic_variable_id)         :: id_zdust
-      type (type_surface_diagnostic_variable_id) :: id_zirondep, id_pdust
+      type (type_diagnostic_variable_id)         :: id_zdust, id_zdustdep_diag
+      type (type_surface_diagnostic_variable_id) :: id_zirondep
       type (type_state_variable_id)              :: id_sil, id_po4, id_fer
       real(rk) ::  mfrac, wdust
    contains
@@ -39,8 +39,8 @@ contains
       call self%register_state_dependency(self%id_sil, 'sil', 'mol Si L-1', 'silicate')
 
       call self%register_diagnostic_variable(self%id_zirondep, 'zirondep', 'mol m-2 s-1', 'iron deposition')
-      call self%register_diagnostic_variable(self%id_pdust, 'pdust', 'g m-3', 'concentration at the surface')
-      call self%register_diagnostic_variable(self%id_zdust, 'zdust', 'g m-3', 'concentration')
+      call self%register_diagnostic_variable(self%id_zdust, 'pdust', 'g m-3', 'dust concentration')
+      call self%register_diagnostic_variable(self%id_zdustdep_diag,'zdustdep_diag', 'mmol l-1 s-1','elements concentration from dust') 
    end subroutine initialize
 
 
@@ -67,6 +67,8 @@ contains
         
          zdust = dust / ( self%wdust / rday )
          _SET_DIAGNOSTIC_(self%id_zdust, zdust)
+
+         _SET_DIAGNOSTIC_(self%id_zdustdep_diag, zdustdep)
 
          !************************************************
 

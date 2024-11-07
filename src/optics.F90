@@ -21,7 +21,7 @@ module pisces_optics
       type (type_surface_dependency_id)          :: id_qsr, id_par_varsw, id_hmld, id_fr_i
       type (type_horizontal_dependency_id)       :: id_qsr_mean
       type (type_diagnostic_variable_id)         :: id_pe1, id_pe2, id_pe3, id_etot_ndcy, id_etot, id_Tchl, id_par, id_gdepw_diag, &
-                                                 &  id_zchl_diag, id_ekb_diag, id_ekg_diag, id_ekr_diag, id_irgb_diag
+                                                 &  id_zchl_diag, id_ekb_diag, id_ekg_diag, id_ekr_diag, id_irgb_diag, id_e3t_diag
       type (type_surface_diagnostic_variable_id) :: id_heup, id_heup_01, id_emoy, id_zpar, id_zqsr , id_dqsr, id_dpqsr100, id_par0
 
       logical :: ln_varpar, ln_p4z_dcyc
@@ -86,6 +86,7 @@ contains
       call self%register_diagnostic_variable(self%id_ekg_diag, 'ekg_diag', '-', 'diagnostic of ekg' , source=source_do_column)
       call self%register_diagnostic_variable(self%id_ekr_diag, 'ekr_diag', '-', 'diagnostic of ekr' , source=source_do_column)
       call self%register_diagnostic_variable(self%id_irgb_diag, 'irgb_diag', '-', 'diagnostic of irgb' , source=source_do_column)
+      call self%register_diagnostic_variable(self%id_e3t_diag , 'e3t_diag','m', 'diagnostic of e3t' , source=source_do_column)
    end subroutine initialize
 
    subroutine do_column(self, _ARGUMENTS_DO_COLUMN_)
@@ -165,13 +166,13 @@ contains
          ! Note ekb, ekg, ekr are depth-integrated attenuation coefficients,
          ! multiplied by 2 since we increment with a whole e3t_n when moving half a grid cell down.
          ! Thus, they need to be multiplied by 0.5 when taking the final EXP.
-         ekb = ekb + rkrgb(1,irgb) * e3t_n
-         ekg = ekg + rkrgb(2,irgb) * e3t_n
-         ekr = ekr + rkrgb(3,irgb) * e3t_n
+         ekb = ekb + rkrgb(1,irgb) * e3t_n !  
+         ekg = ekg + rkrgb(2,irgb) * e3t_n ! 
+         ekr = ekr + rkrgb(3,irgb) * e3t_n ! 
 
-         _SET_DIAGNOSTIC_(self%id_ekb_diag, ekb)
-         _SET_DIAGNOSTIC_(self%id_ekg_diag, ekg)
-         _SET_DIAGNOSTIC_(self%id_ekr_diag, ekr)
+         _SET_DIAGNOSTIC_(self%id_ekb_diag, rkrgb(1,irgb) * e3t_n)
+         _SET_DIAGNOSTIC_(self%id_ekg_diag, rkrgb(2,irgb) * e3t_n)
+         _SET_DIAGNOSTIC_(self%id_ekr_diag, rkrgb(3,irgb) * e3t_n)
 
          ! Note that the irradiances below are all horizontally averaged over the entire grid cell and thus
          ! consider shading by ice. Compared to the original PISCES implementation, this is similar to etot3,
@@ -203,10 +204,13 @@ contains
          _SET_DIAGNOSTIC_(self%id_par,par) ! Mokrane
          _SET_SURFACE_DIAGNOSTIC_(self%id_par0,par0) ! Mokrane
 
+         _SET_DIAGNOSTIC_(self%id_e3t_diag, e3t_n)
+
          gdepw_n = gdepw_n + e3t_n
          IF (first .or. etot_ndcy >= pqsr100) heup    = gdepw_n  ! Euphotic layer depth
          IF (first .or. etot_ndcy >= 0.1) heup_01 = gdepw_n  ! Euphotic layer depth (light level definition)
          
+
          _SET_DIAGNOSTIC_(self%id_gdepw_diag,gdepw_n)
 
 

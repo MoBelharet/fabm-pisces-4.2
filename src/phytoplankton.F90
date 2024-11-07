@@ -26,7 +26,8 @@ module pisces_phytoplankton
       type (type_diagnostic_variable_id) :: id_PPPHY, id_PPNEW, id_PBSi, id_PFe
       type (type_diagnostic_variable_id) :: id_zprmax, id_Mu, id_Llight, id_zval_diag, id_zpislopead_diag, id_zrespp_diag, &
       & id_ztortp_diag,id_sizep_diag, id_etot_w_diag, id_etot_wm_diag, id_plig_diag, id_zfecm_diag, id_xno3_diag, id_xnh4_diag, &
-      & id_xfer_diag, id_zmax_diag, id_concfe_diag, id_zbiron_diag, id_etot_ndcy_diag, id_zratio_diag, id_zval_cond, id_hmld_diag, id_heup_01_diag
+      & id_xfer_diag, id_zmax_diag, id_concfe_diag, id_zbiron_diag, id_etot_ndcy_diag, id_zratio_diag, id_zval_cond, id_hmld_diag, id_heup_01_diag, &
+      & id_zmxl_chl_diag, id_zmxl_fac_diag, id_xqfuncfec_diag, id_zironmin_diag, id_fri_diag
 
       logical :: diatom
       logical :: calcify
@@ -274,6 +275,11 @@ contains
       call self%register_diagnostic_variable(self%id_etot_ndcy_diag, 'etot_ndcy_diag', '-', 'diagnostic of etot_ndcy')
       call self%register_diagnostic_variable(self%id_hmld_diag, 'hmld_diag', '-', 'diagnostic of hmld')
       call self%register_diagnostic_variable(self%id_heup_01_diag, 'heup_01_diag', '-', 'diagnostic of heup_01')
+      call self%register_diagnostic_variable(self%id_zmxl_chl_diag, 'zmxl_chl_diag','-','diagnostic of mxl_chl')
+      call self%register_diagnostic_variable(self%id_zmxl_fac_diag, 'zmxl_fac_diag','-','diagnostic of mxl_fac')
+      call self%register_diagnostic_variable(self%id_xqfuncfec_diag, 'xqfuncfec_diag','-','diagnostic of xqfuncfec' )
+      call self%register_diagnostic_variable(self%id_zironmin_diag, 'zironmin_diag', '-','diagnostic of zironmin' )
+      call self%register_diagnostic_variable(self%id_fri_diag, 'fri_diag', '-','diagnostic of fr_i' )
 
    end subroutine initialize
 
@@ -398,6 +404,7 @@ contains
 
          
          z1_trb   = 1._rk / ( c + rtrn )         ! 1 / carbon biomass
+
          concfe = self%concfer * sizep**0.81    ! sizep is the equivalent of sizen and sized in the original version
          zconcno3           = self%concno3 * sizep**0.81
          zconcnh4        = self%concnh4 * sizep**0.81 
@@ -473,34 +480,48 @@ contains
          _SET_DIAGNOSTIC_(self%id_zlim4, zlim4)
          _SET_DIAGNOSTIC_(self%id_xlim, xlim)
          _SET_DIAGNOSTIC_(self%id_xlimsi_diag, xlimsi)
+         _SET_DIAGNOSTIC_(self%id_xqfuncfec_diag,xqfuncfec )
+         _SET_DIAGNOSTIC_(self%id_zironmin_diag,zironmin )
+         _SET_DIAGNOSTIC_(self%id_fri_diag,fr_i )
 
          ! Computation of the optimal production - Jorn note conversion to 1/s
          zprmax = self%mumax0 * r1_rday * tgfunc   ! Jorn: Eq 4b in PISCES-v2 paper; NEMO-PISCES uses a hardcoded mumax0 = 0.8, which evolved from the value of 0.6 in the paper (Olivier Aumont 2021-04-21)
 
          ! Impact of the day duration and light intermittency on phytoplankton growth
-
+         zval_cond = 0.
          IF( etot_ndcy > 1.E-3 ) THEN
             zval = MAX( 1._rk, zstrn )   ! Jorn: clip day length to a minimum of 1 hour
+           ! zval = floor(zval)
             zval_cond = 0.5
             IF( gdept_n <= hmld ) THEN
                zval = zval * MIN(1._rk, heup_01 / ( hmld + rtrn ))   ! Jorn: when in mixing layer, multiply with fraction of time spent in euphotic depth; it seems to be an easier-to-understand substitute for Eq 3b-3da
                zval_cond = 1.
             ENDIF
-            zmxl_chl = zval / 24._rk  ! Jorn: from number of hours to fraction of day
+            zmxl_chl = zval / 24.  ! Jorn: from number of hours to fraction of day
             !zmxl_fac = 1.5_rk * zval / ( 12._rk + zval )  ! Jorn: Eq 3a in PISCES-v2 paper - but note that time spent in euphotic layer has already been incorporated in zval! Eqs 3b-3d are not used
             zmxl_fac = 1._rk - exp( -0.26 * zval ) !self%fpday * zval / ( 12._rk + zval )  ! AC 07.12.2021 - fpday as parameter
 
          ELSE
                   zmxl_fac = 0._rk
+                  zmxl_chl = 0._rk
          ENDIF
           _SET_DIAGNOSTIC_(self%id_zval_diag, zval)
           _SET_DIAGNOSTIC_(self%id_zval_cond, zval_cond)
           _SET_DIAGNOSTIC_(self%id_hmld_diag, hmld)
           _SET_DIAGNOSTIC_(self%id_heup_01_diag, heup_01)
+          _SET_DIAGNOSTIC_(self%id_zmxl_chl_diag, zmxl_chl)
+          _SET_DIAGNOSTIC_(self%id_zmxl_fac_diag, zmxl_fac)
              
 
             zpr = zprmax * zmxl_fac  ! Jorn: product of muP and f1*f2 (sort of - those have been changed) in Eq 2a, units are 1/s
             
+
+            _SET_DIAGNOSTIC_(self%id_etot_w_diag, etot_w)
+            _SET_DIAGNOSTIC_(self%id_etot_wm_diag, etot_wm)
+
+            _SET_DIAGNOSTIC_(self%id_xno3_diag, xno3)
+            _SET_DIAGNOSTIC_(self%id_xnh4_diag, xnh4)
+            _SET_DIAGNOSTIC_(self%id_xfer_diag, xfer)
 
           IF( etot_ndcy > 1.E-3 ) THEN
             zpislopead = self%pislope * ch  /( c * 12. + rtrn)
@@ -516,8 +537,6 @@ contains
             zpislope = zpislopead / ( zprmax * zmxl_chl * rday + rtrn )   ! note zprmax is in 1/s and multiplied with rday to convert to d-1. Resulting units are (W m-2)-1. No divison by nutrient limitation (similar to Eq 2a replacing 2b)
             zprch = zprmax * ( 1._rk - EXP( -zpislope * etot_wm ) )       ! Units 1/s, note this uses mean PAR experienced in the euphotic layer (or 0 if below ML) - units are 1/d
             
-            _SET_DIAGNOSTIC_(self%id_etot_w_diag, etot_w)
-            _SET_DIAGNOSTIC_(self%id_etot_wm_diag, etot_wm)
             !  Computation of a proxy of the N/C ratio - Jorn: this is dimensionless and thus relative to rno3 (it is not the absolute N:C!)
             !  ---------------------------------------
             zval = MIN( xpo4, ( xnh4 + xno3 ) )   &    ! Jorn: nitrogen and phosphate limitation, divided by light limitation
@@ -589,9 +608,6 @@ contains
 
             !************* Diagnostics **************************************
             _SET_DIAGNOSTIC_(self%id_zfecm_diag, zfecm)
-            _SET_DIAGNOSTIC_(self%id_xno3_diag, xno3)
-            _SET_DIAGNOSTIC_(self%id_xnh4_diag, xnh4)
-            _SET_DIAGNOSTIC_(self%id_xfer_diag, xfer)
             _SET_DIAGNOSTIC_(self%id_zmax_diag, zmax)
             _SET_DIAGNOSTIC_(self%id_zratio_diag, zratio)
             
@@ -612,14 +628,13 @@ contains
             zprofe = 0._rk
             zysopt = 0._rk
             zpr = 0._rk
+
             quota = 1._rk
 
             !************* Diagnostics **************************************
-            _SET_DIAGNOSTIC_(self%id_zfecm_diag, zfecm)
-            _SET_DIAGNOSTIC_(self%id_xno3_diag, xno3)
-            _SET_DIAGNOSTIC_(self%id_xnh4_diag, xnh4)
-            _SET_DIAGNOSTIC_(self%id_xfer_diag, xfer)
-            _SET_DIAGNOSTIC_(self%id_zmax_diag, zmax)
+            _SET_DIAGNOSTIC_(self%id_zfecm_diag, 0._rk)
+            _SET_DIAGNOSTIC_(self%id_zmax_diag, 0._rk)
+            _SET_DIAGNOSTIC_(self%id_zratio_diag, 0._rk)
 
             !****************************************************************
          ENDIF

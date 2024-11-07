@@ -10,6 +10,7 @@ module pisces_ice
 
    type, extends(type_base_model), public :: type_pisces_ice
       type (type_surface_dependency_id)          :: id_fmmflx
+      type (type_surface_diagnostic_variable_id) :: id_fmmflx_diag, id_zironice
       type (type_state_variable_id)              :: id_fer
       real(rk) :: icefeinput
       logical :: ln_ironice
@@ -29,6 +30,9 @@ contains
        call self%register_dependency(self%id_fmmflx,fmmflx)
 
        call self%register_state_dependency(self%id_fer, 'fer', 'mol Fe L-1', 'iron')
+
+       call self%register_diagnostic_variable(self%id_fmmflx_diag, 'sfmmflx_diag', 'kg m-2 s-1', 'freshwater budget' )
+       call self%register_diagnostic_variable(self%id_zironice, 'Ironice', 'mol Fe m-2 s-1' , 'Iron input/uptake due to sea ice')
 
 
    end subroutine initialize
@@ -52,6 +56,9 @@ contains
          IF(self%ln_ironice) THEN
            _ADD_SURFACE_FLUX_(self%id_fer, zironice)
          ENDIF
+
+         _SET_SURFACE_DIAGNOSTIC_(self%id_zironice, MAX( -0.99_rk * fer, -zwflux * self%icefeinput * 1.e3))
+         _SET_SURFACE_DIAGNOSTIC_(self%id_fmmflx_diag , sfmmflx )
 
       _SURFACE_LOOP_END_
 
