@@ -27,7 +27,7 @@ module pisces_phytoplankton
       type (type_diagnostic_variable_id) :: id_zprmax, id_Mu, id_Llight, id_zval_diag, id_zpislopead_diag, id_zrespp_diag, &
       & id_ztortp_diag,id_sizep_diag, id_etot_w_diag, id_etot_wm_diag, id_plig_diag, id_zfecm_diag, id_xno3_diag, id_xnh4_diag, &
       & id_xfer_diag, id_zmax_diag, id_concfe_diag, id_zbiron_diag, id_etot_ndcy_diag, id_zratio_diag, id_zval_cond, id_hmld_diag, id_heup_01_diag, &
-      & id_zmxl_chl_diag, id_zmxl_fac_diag, id_xqfuncfec_diag, id_zironmin_diag, id_fri_diag
+      & id_zmxl_chl_diag, id_zmxl_fac_diag, id_xqfuncfec_diag, id_zironmin_diag, id_fri_diag, id_xksi_diag
 
       logical :: diatom
       logical :: calcify
@@ -218,7 +218,7 @@ contains
          call self%register_dependency(self%id_xksi_, 'xksi', 'mol Si L-1', 'instantaneous silicate half-saturation constant')
          call silicate_half_saturation%request_coupling(silicate_half_saturation%id_sil, '../sil')
          call self%request_coupling(self%id_xksi_, 'silicate_half_saturation/xksi')
-         call self%register_dependency(self%id_xksi, temporal_maximum(self%id_xksi_, period=nyear_len * rday, resolution=nyear_len * rday, missing_value=2.e-6_rk))
+         call self%register_dependency(self%id_xksi, temporal_maximum(self%id_xksi_, period=(nyear_len - 1 )* rday * 2, resolution=nyear_len * rday, missing_value=2.e-6_rk))
       else
          call self%request_coupling(self%id_sil, 'zero')
       end if
@@ -280,6 +280,7 @@ contains
       call self%register_diagnostic_variable(self%id_xqfuncfec_diag, 'xqfuncfec_diag','-','diagnostic of xqfuncfec' )
       call self%register_diagnostic_variable(self%id_zironmin_diag, 'zironmin_diag', '-','diagnostic of zironmin' )
       call self%register_diagnostic_variable(self%id_fri_diag, 'fri_diag', '-','diagnostic of fr_i' )
+      if(self%diatom) call self%register_diagnostic_variable(self%id_xksi_diag, 'xksi_diag', '-','diagnostic of xksi' )
 
    end subroutine initialize
 
@@ -336,6 +337,7 @@ contains
       _DECLARE_ARGUMENTS_DO_
 
       ! Coefficient for iron limitation - Jorn Eq 20
+
       real(rk), parameter ::  xcoef1   = 0.0016  / 55.85
       real(rk), parameter ::  xcoef2   = 1.21E-5 * 14. / 55.85 / 7.3125 * 0.5 * 1.5
       real(rk), parameter ::  xcoef3   = 1.15E-4 * 14. / 55.85 / 7.3125 * 0.5
@@ -344,7 +346,7 @@ contains
       real(rk) :: nh4, no3, po4, biron, sil
       real(rk) :: tem, gdept_n, zstrn, hmld, heup_01, etot_ndcy, etot_w, etot_wm, gphit, fr_i, gdepw_n
       real(rk) :: tgfunc, zconc, zconc2, z1_trb, concfe, zconcno3, zconcnh4, zdenom, xno3, xnh4, xpo4, zlim1, zlim2, xlim, xlimsi, xfer
-      real(rk) :: xksi, zlim3, sizep, sizep_prev
+      real(rk) :: xksi, zlim3, sizep, sizep_prev, xksi_
       real(rk) :: zratio, zironmin, zlim4, xlimfe, xqfuncfec, znutlimtot, zlimno3, zlimnh4
       real(rk) :: zprmax, zval, zmxl_chl, zmxl_fac, zpr
       real(rk) :: ztn, zadap, zpislopead, zpislope, zprch
@@ -355,6 +357,7 @@ contains
       real(rk) :: xfraresp, xfratort, zcompa, zsizerat, zrespp, ztortp, zmortp, zfactfe, zfactch, zfactsi, zprcaca, xdiss
       real(rk) :: zbiron, plig, znutlim, faf, zfalim, sizea, zcoef
       real(rk) :: zratiosi, zmaxsi, consfe3, zfecm, zlimfac, zsizetmp, zval_cond
+      real(rk) :: nday_year
 
 
       _LOOP_BEGIN_
@@ -450,7 +453,10 @@ contains
            if (self%diatom) then
             ! Jorn: From p4zint
              _GET_SURFACE_(self%id_xksi, xksi)
+
              zlim3    = sil / ( sil + xksi )    ! Eq 11b
+
+             _SET_DIAGNOSTIC_(self%id_xksi_diag, xksi)
            else
               zlim3 = 1._rk
            end if
@@ -845,7 +851,8 @@ contains
       _SURFACE_LOOP_BEGIN_
          _GET_(self%id_sil, sil)
          zvar = sil * sil
-         xksi = self%concsil + 7.e-6_rk * zvar / ( self%xksilim * self%xksilim + zvar )    ! Eq 12, note self%concsil=1e-6 is hardcoded in NEMO-PISCES, p4zint.F90
+         xksi = MAX(0._rk, self%concsil * (1._rk + 7._rk * zvar / ( self%xksilim * self%xksilim + zvar ) ) )    ! Eq 12, note self%concsil=1e-6 is hardcoded in NEMO-PISCES, p4zint.F90
+         !xksimax(ji,jj) = MAX( xksimax(ji,jj), ( 1.+ 7.* zvar / ( xksilim * xksilim + zvar ) ) * 1e-6 )
          _SET_SURFACE_DIAGNOSTIC_(self%id_xksi, xksi)
       _SURFACE_LOOP_END_
    end subroutine
