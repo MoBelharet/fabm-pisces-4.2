@@ -38,6 +38,7 @@ module pisces_shared
  !  type (type_horizontal_standard_variable), parameter :: cell_area = type_horizontal_standard_variable(name='cell_area', units='m2') ! Celle area
    type (type_interior_standard_variable),parameter :: iron_hydrothermal_source = type_interior_standard_variable(name='iron_hydrothermal_source', units='mol Fe y-1' )
    type (type_interior_standard_variable),parameter :: bathy_etop5 = type_interior_standard_variable(name='bathy_etop5' , units='-')
+   type (type_surface_standard_variable), parameter :: par_varsw = type_surface_standard_variable(name='par_varsw', units='1')
 
    type (type_interior_standard_variable), parameter :: calcite_saturation_state = type_interior_standard_variable(name='calcite_saturation_state', units='-')
 

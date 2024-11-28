@@ -58,7 +58,7 @@ contains
       call self%register_dependency(self%id_chltot, total_chlorophyll)
       call self%register_dependency(self%id_e3t_n, standard_variables%cell_thickness)
       call self%register_dependency(self%id_qsr, standard_variables%surface_downwelling_shortwave_flux)
-      if (self%ln_varpar) call self%register_dependency(self%id_par_varsw, 'par_varsw', '1', 'PAR : SWR ratio')
+      if (self%ln_varpar) call self%register_dependency(self%id_par_varsw, par_varsw) 
       call self%register_dependency(self%id_qsr_mean, temporal_mean(self%id_qsr, period=86400._rk,resolution=3600._rk))
       !call self%register_dependency(self%id_qsr_mean,standard_variables%surface_mean_downwelling_shortwave_flux)
       call self%register_dependency(self%id_fr_i, standard_variables%ice_area_fraction)
