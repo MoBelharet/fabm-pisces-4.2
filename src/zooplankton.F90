@@ -19,7 +19,7 @@ module pisces_zooplankton
       type (type_dependency_id)     :: id_tem, id_nitrfac, id_quotan, id_quotad, id_xfracal, id_wspoc, id_wsgoc, id_gdepw_n, id_sized, id_sizen
       !type (type_global_dependency_id)  :: id_rDttrc
       type (type_surface_dependency_id) :: id_hmld, id_heup_01
-      type (type_diagnostic_variable_id) :: id_zfezoo, id_zgrazing, id_zfrac, id_pcal
+      type (type_diagnostic_variable_id) :: id_zfezoo, id_zgrazing, id_zfrac, id_pcal, id_zquadmort
       type (type_diagnostic_variable_id) :: id_zfood_diag, id_zfoodlim_diag, id_ztmp2_diag, id_ztmp1_diag, id_zgrazp_diag, id_zgrazpoc_diag,&
       & id_zcompaph_diag, id_zcompapoc_diag, id_zcompadi_diag, id_sizen_diag, id_sized_diag , id_zgraze_diag,id_zdiffdn_diag,id_ztmp3_diag, id_ztmp4_diag, &
       & id_zproport_diag, id_zgrasrat_diag, id_zgrasratn_diag, id_zepshert_diag, id_zepsherv_diag, id_quotan_diag, id_zepsherf_diag, &
@@ -83,6 +83,7 @@ contains
       call self%register_diagnostic_variable(self%id_zgrazing, 'graz', 'mol C m-3 s-1', 'grazing')
       call self%register_diagnostic_variable(self%id_zfrac, 'zfrac', 'mol C m-3 s-1', 'fractionation of large POM')
       call self%register_diagnostic_variable(self%id_pcal, 'pcal', 'mol m-3 s-1', 'calcite production')
+      call self%register_diagnostic_variable(self%id_zquadmort, 'quadmort', 'mgC m-3 d-1', 'Quadratic mortality')
       call self%add_to_aggregate_variable(calcite_production, self%id_pcal)
 
       call self%register_diagnostic_variable(self%id_zfood_diag, 'zfood_diag', '-', 'zfood diagnostic')
@@ -240,7 +241,9 @@ contains
          !   no real reason except that it seems to be more stable and may mimic predation.
          !   Jorn: 3rd term in Eq 24, except that a (1._rk - nitrfac) factor has been added here, and zcompaz is used to introduce a threshold
          !   ------------------------------------------------------------------------------
-         ztortz = self%mzrat * 1.e6_rk * zfact * c * (1._rk - nitrfac)
+         ztortz = self%mzrat * 1.e6_rk * zfact * c * (1._rk - nitrfac) ! molC L-1 s-1 = 1e6 mmolC m-3 s-1
+
+         _SET_DIAGNOSTIC_(self%id_zquadmort, ztortz * 1.e6 * 12 * 3600 * 24) ! mgC m-3 d-1
 
          ! Prey
          _GET_(self%id_dia, dia)

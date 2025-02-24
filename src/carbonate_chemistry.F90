@@ -106,7 +106,7 @@ contains
          initial_value=2.426e-3_rk, minimum=0.0_rk, &
          standard_variable=standard_variables%alkalinity_expressed_as_mole_equivalent)
 
-      call self%register_diagnostic_variable(self%id_PH, 'PH', '1', 'pH', standard_variable=standard_variables%ph_reported_on_total_scale)
+      call self%register_diagnostic_variable(self%id_ph, 'PH', '1', 'pH', standard_variable=standard_variables%ph_reported_on_total_scale)
       call self%register_diagnostic_variable(self%id_hi, 'hi', 'mol L-1', 'hydrogen ion concentration')
       call self%register_diagnostic_variable(self%id_CO3, 'CO3', 'mol m-3', 'CO3 concentration')
       call self%register_diagnostic_variable(self%id_CO3sat, 'CO3sat', 'mol m-3', 'CO3 concentration at saturation')
@@ -117,6 +117,7 @@ contains
       call self%register_diagnostic_variable(self%id_Kg, 'Kg', 'm s-1', 'gas transfer velocity')
       call self%register_diagnostic_variable(self%id_Dpco2, 'Dpco2', 'uatm', 'delta pCO2')
       call self%register_diagnostic_variable(self%id_pCO2sea, 'pCO2sea', 'uatm', 'surface ocean pCO2')
+      !call self%register_diagnostic_variable(self%id_ph, 'PH', '-', 'sea water PH')
 
       !----- Mokrane ------
 
