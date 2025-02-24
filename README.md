@@ -22,12 +22,14 @@ This code must be compiled together with FABM. To do this, provide the following
 
 Here, `<PISCESDIR>` is the directory with the FABM-PISCES code (the same directory that contains this readme file). Note that `-DFABM_INSTITUTES=pisces` will make FABM compile PISCES as the *only* available biogeochemical model. If you additionally want to have access to other biogeochemical models included with FABM, you can set `FABM_INSTITUTES` to a semi-colon separated list, e.g., `-DFABM_INSTITUTES="pisces;ersem"` (to prevent the shell from interpreting the semi-colons, you typically have to enclose this list with quotes).
 
-For instance, to use PISCES with the latest stable release of the [General Ocean Turbulence Model (GOTM)](https://gotm.net/), do the following:
+You can use the configuration file (build_fabm_config.sh) included in `<PISCESDIR>/testcases` to compile the model. 
+
+For instance, to use PISCES with the latest stable release of the [General Ocean Turbulence Model (GOTM)](https://gotm.net/) , do the following:
 
 ```
 git clone --recurse-submodules -b v6.0 https://github.com/gotm-model/code.git gotm
 git clone https://github.com/fabm-model/fabm.git
-git clone https://github.com/BoldingBruggeman/fabm-pisces.git
+git clone https://github.com/MoBelharet/fabm-pisces-4.2
 mkdir build
 cd build
 cmake ../gotm -DFABM_BASE=../fabm -DFABM_INSTITUTES=pisces -DFABM_PISCES_BASE=../fabm-pisces
