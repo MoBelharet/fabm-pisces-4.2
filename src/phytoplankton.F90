@@ -27,7 +27,7 @@ module pisces_phytoplankton
       type (type_diagnostic_variable_id) :: id_zprmax, id_Mu, id_Llight, id_zval_diag, id_zpislopead_diag, id_zrespp_diag, &
       & id_ztortp_diag,id_sizep_diag, id_etot_w_diag, id_etot_wm_diag, id_plig_diag, id_zfecm_diag, id_xno3_diag, id_xnh4_diag, &
       & id_xfer_diag, id_zmax_diag, id_concfe_diag, id_zbiron_diag, id_etot_ndcy_diag, id_zratio_diag, id_zval_cond, id_hmld_diag, id_heup_01_diag, &
-      & id_zmxl_chl_diag, id_zmxl_fac_diag, id_xqfuncfec_diag, id_zironmin_diag, id_fri_diag, id_xksi_diag
+      & id_zmxl_chl_diag, id_zmxl_fac_diag, id_xqfuncfec_diag, id_zironmin_diag, id_fri_diag, id_xksi_diag, id_zysopt_cond
 
       logical :: diatom
       logical :: calcify
@@ -72,7 +72,9 @@ module pisces_phytoplankton
 
    type, extends(type_base_model) :: type_silicate_half_saturation
       type (type_dependency_id)                  :: id_sil
-      type (type_surface_diagnostic_variable_id) :: id_xksi
+      type (type_surface_dependency_id)                  ::id_xksi_prev
+      type (type_surface_diagnostic_variable_id) :: id_xksi , id_xksimax_right 
+      type (type_global_dependency_id)           :: id_nday_year
       real(rk) :: concsil
       real(rk) :: xksilim
    contains
@@ -218,7 +220,7 @@ contains
          call self%register_dependency(self%id_xksi_, 'xksi', 'mol Si L-1', 'instantaneous silicate half-saturation constant')
          call silicate_half_saturation%request_coupling(silicate_half_saturation%id_sil, '../sil')
          call self%request_coupling(self%id_xksi_, 'silicate_half_saturation/xksi')
-         call self%register_dependency(self%id_xksi, temporal_maximum(self%id_xksi_, period=(nyear_len - 1 )* rday * 2, resolution=nyear_len * rday, missing_value=2.e-6_rk))
+         !call self%register_dependency(self%id_xksi,  temporal_maximum(self%id_xksi_, period= nyear_len * rday , resolution=nyear_len * rday, missing_value=2.e-6_rk))
       else
          call self%request_coupling(self%id_sil, 'zero')
       end if
@@ -281,6 +283,7 @@ contains
       call self%register_diagnostic_variable(self%id_zironmin_diag, 'zironmin_diag', '-','diagnostic of zironmin' )
       call self%register_diagnostic_variable(self%id_fri_diag, 'fri_diag', '-','diagnostic of fr_i' )
       if(self%diatom) call self%register_diagnostic_variable(self%id_xksi_diag, 'xksi_diag', '-','diagnostic of xksi' )
+      call self%register_diagnostic_variable(self%id_zysopt_cond, 'zysopt_cond', '-', 'zysopt condition' )
 
    end subroutine initialize
 
@@ -358,6 +361,7 @@ contains
       real(rk) :: zbiron, plig, znutlim, faf, zfalim, sizea, zcoef
       real(rk) :: zratiosi, zmaxsi, consfe3, zfecm, zlimfac, zsizetmp, zval_cond
       real(rk) :: nday_year
+      integer :: zysopt_cond ! Mokrane
 
 
       _LOOP_BEGIN_
@@ -404,6 +408,7 @@ contains
          ! Jorn: From p4zlim
 
          _GET_(self%id_sizep_prev, sizep)
+         IF(isnan(sizep)) sizep = 1._rk
 
          
          z1_trb   = 1._rk / ( c + rtrn )         ! 1 / carbon biomass
@@ -452,7 +457,7 @@ contains
            
            if (self%diatom) then
             ! Jorn: From p4zint
-             _GET_SURFACE_(self%id_xksi, xksi)
+             _GET_SURFACE_(self%id_xksi_, xksi)
 
              zlim3    = sil / ( sil + xksi )    ! Eq 11b
 
@@ -529,7 +534,7 @@ contains
             _SET_DIAGNOSTIC_(self%id_xnh4_diag, xnh4)
             _SET_DIAGNOSTIC_(self%id_xfer_diag, xfer)
 
-          IF( etot_ndcy > 1.E-3 ) THEN
+          IF( etot_ndcy > 1.e-3_rk ) THEN
             zpislopead = self%pislope * ch  /( c * 12. + rtrn)
 
             ! Computation of production function for Carbon - Jorn: Eq 2a in PISCES-v2 paper
@@ -579,8 +584,10 @@ contains
                _SET_DIAGNOSTIC_(self%id_zmaxsi_diag, zmaxsi)
 
                IF( xlimsi /= xlim ) THEN
+                       zysopt_cond = 1 ! Mokrane
                   zysopt = zlim * zsilfac * self%grosip * 1._rk * zmaxsi
                ELSE
+                       zysopt_cond = 0 ! Mokrane
                   zysopt = zlim * zsilfac * self%grosip * 1._rk * zsilim**0.7 * zmaxsi
                ENDIF
 
@@ -637,6 +644,8 @@ contains
 
             quota = 1._rk
 
+            zysopt_cond = 2 ! Mokrane
+
             !************* Diagnostics **************************************
             _SET_DIAGNOSTIC_(self%id_zfecm_diag, 0._rk)
             _SET_DIAGNOSTIC_(self%id_zmax_diag, 0._rk)
@@ -654,6 +663,8 @@ contains
 
          _SET_DIAGNOSTIC_(self%id_zpislopead_diag, zpislopead)
          _SET_DIAGNOSTIC_(self%id_sizea, sizea)
+
+         _SET_DIAGNOSTIC_(self%id_zysopt_cond, zysopt_cond)
 
          ! This variable must be declared as a diagnostic variable
          ! it is used in iron.F90
@@ -714,7 +725,7 @@ contains
          _SET_DIAGNOSTIC_(self%id_PPPHY, zprorca * 1.e+3) ! primary production
          _SET_DIAGNOSTIC_(self%id_PPNEW, zpronew * 1.e+3) ! new primary production
          !if (self%diatom) _SET_DIAGNOSTIC_(self%id_PBSi, zprorca * 1.e+3 * zysopt) ! biogenic silica production
-         if (self%diatom) _SET_DIAGNOSTIC_(self%id_PBSi, zysopt * 1.e+3) ! Mokrane
+         if (self%diatom) _SET_DIAGNOSTIC_(self%id_PBSi, zysopt * 1.e+3 /3600._rk) ! Mokrane
          _SET_DIAGNOSTIC_(self%id_PFe, zprofe * 1.e+3) ! biogenic iron production
        !   IF( ln_ligand ) THEN
        !     CALL iom_put( "LPRODP"  , zpligprod1(:,:,:) * 1e9 * zfact * tmask(:,:,:) )
@@ -839,21 +850,36 @@ contains
       call self%register_implemented_routines((/source_do_surface/))
 
       call self%register_dependency(self%id_sil, 'sil', 'mol Si L-1', 'silicate')
-      call self%register_diagnostic_variable(self%id_xksi, 'xksi', 'mol Si L-1', 'silicate half saturation')
+      call self%register_diagnostic_variable(self%id_xksi, 'xksi', 'mol Si L-1', 'silicate half saturation', missing_value = 2.e-6_rk)
+      call self%register_dependency(self%id_xksi_prev, 'xksi','mol Si L-1', 'silicate half saturation')
+      call self%register_diagnostic_variable(self%id_xksimax_right, 'xksimax_right', '-', 'diagnostic of xksimax_right')
+      call self%register_dependency(self%id_nday_year, standard_variables%number_of_days_since_start_of_the_year)
+
    end subroutine
 
    subroutine silicate_half_saturation_do_surface(self, _ARGUMENTS_DO_SURFACE_)
       class (type_silicate_half_saturation), intent(in) :: self
       _DECLARE_ARGUMENTS_DO_SURFACE_
 
-      real(rk) :: sil, zvar, xksi
+      real(rk) :: sil, zvar, xksi, xksimax_right, nday
 
       _SURFACE_LOOP_BEGIN_
          _GET_(self%id_sil, sil)
+         _GET_GLOBAL_(self%id_nday_year, nday)
+         _GET_SURFACE_(self%id_xksi_prev,xksi)
+
          zvar = sil * sil
-         xksi = MAX(0._rk, self%concsil * (1._rk + 7._rk * zvar / ( self%xksilim * self%xksilim + zvar ) ) )    ! Eq 12, note self%concsil=1e-6 is hardcoded in NEMO-PISCES, p4zint.F90
-         !xksimax(ji,jj) = MAX( xksimax(ji,jj), ( 1.+ 7.* zvar / ( xksilim * xksilim + zvar ) ) * 1e-6 )
+         !xksimax = MAX(2.e-6_rk, self%concsil * (1._rk + 7._rk * zvar / ( self%xksilim * self%xksilim + zvar ) ) )    ! Eq 12, note self%concsil=1e-6 is hardcoded in NEMO-PISCES, p4zint.F90
+         IF(nday == nyear_len) THEN
+                 xksi = MAX(0._rk, self%concsil * (1._rk + 7._rk * zvar / ( self%xksilim * self%xksilim + zvar ) ) )    ! Eq 12, note self%concsil=1e-6 is hardcoded in NEMO-PISCES, p4zint.F90
+
+         ENDIF
+
          _SET_SURFACE_DIAGNOSTIC_(self%id_xksi, xksi)
+
+         xksimax_right = self%concsil * (1._rk + 7._rk * zvar / ( self%xksilim * self%xksilim + zvar ) )
+         _SET_SURFACE_DIAGNOSTIC_(self%id_xksimax_right, xksimax_right)
+
       _SURFACE_LOOP_END_
    end subroutine
 
