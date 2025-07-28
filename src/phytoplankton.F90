@@ -28,6 +28,7 @@ module pisces_phytoplankton
       & id_ztortp_diag,id_sizep_diag, id_etot_w_diag, id_etot_wm_diag, id_plig_diag, id_zfecm_diag, id_xno3_diag, id_xnh4_diag, &
       & id_xfer_diag, id_zmax_diag, id_concfe_diag, id_zbiron_diag, id_etot_ndcy_diag, id_zratio_diag, id_zval_cond, id_hmld_diag, id_heup_01_diag, &
       & id_zmxl_chl_diag, id_zmxl_fac_diag, id_xqfuncfec_diag, id_zironmin_diag, id_fri_diag, id_xksi_diag, id_zysopt_cond
+      
 
       logical :: diatom
       logical :: calcify
@@ -72,7 +73,7 @@ module pisces_phytoplankton
 
    type, extends(type_base_model) :: type_silicate_half_saturation
       type (type_dependency_id)                  :: id_sil
-      type (type_surface_dependency_id)                  ::id_xksi_prev
+      !type (type_surface_dependency_id)                  ::id_xksi_prev
       type (type_surface_diagnostic_variable_id) :: id_xksi , id_xksimax_right 
       type (type_global_dependency_id)           :: id_nday_year
       real(rk) :: concsil
@@ -91,11 +92,12 @@ contains
       class (type_par),                      pointer :: par_model
       class (type_silicate_half_saturation), pointer :: silicate_half_saturation
 
-      real(rk) :: bp
+      real(rk) :: bp !, nyear_len
 
       call self%register_implemented_routines((/source_do/))
 
       allocate(par_model)
+
 
       call self%get_parameter(self%diatom, 'diatom', '', 'use silicate', default=.false.)
       call self%get_parameter(self%calcify, 'calcify', '', 'calcify', default=.false.)
@@ -220,7 +222,7 @@ contains
          call self%register_dependency(self%id_xksi_, 'xksi', 'mol Si L-1', 'instantaneous silicate half-saturation constant')
          call silicate_half_saturation%request_coupling(silicate_half_saturation%id_sil, '../sil')
          call self%request_coupling(self%id_xksi_, 'silicate_half_saturation/xksi')
-         !call self%register_dependency(self%id_xksi,  temporal_maximum(self%id_xksi_, period= nyear_len * rday , resolution=nyear_len * rday, missing_value=2.e-6_rk))
+         call self%register_dependency(self%id_xksi, temporal_maximum(self%id_xksi_, period= nyear_len * rday - 3600._rk, resolution=nyear_len * rday - 3600._rk, missing_value=2.e-6_rk))
       else
          call self%request_coupling(self%id_sil, 'zero')
       end if
@@ -284,6 +286,7 @@ contains
       call self%register_diagnostic_variable(self%id_fri_diag, 'fri_diag', '-','diagnostic of fr_i' )
       if(self%diatom) call self%register_diagnostic_variable(self%id_xksi_diag, 'xksi_diag', '-','diagnostic of xksi' )
       call self%register_diagnostic_variable(self%id_zysopt_cond, 'zysopt_cond', '-', 'zysopt condition' )
+
 
    end subroutine initialize
 
@@ -457,7 +460,8 @@ contains
            
            if (self%diatom) then
             ! Jorn: From p4zint
-             _GET_SURFACE_(self%id_xksi_, xksi)
+            !_GET_SURFACE_(self%id_xksi_, xksi)
+            _GET_SURFACE_(self%id_xksi, xksi)
 
              zlim3    = sil / ( sil + xksi )    ! Eq 11b
 
@@ -804,6 +808,8 @@ contains
 
          ztortp = self%mprat * xstep * zcompa * c / ( self%xkmort + c )     ! Jorn: hyperbolic part of 5th term in Eq 37 except for zsizerat, minimum threshold in zcompa
        
+         !if(self%diatom) zrespp = 1._rk 
+
          zmortp = zrespp + ztortp  
 
 
@@ -850,10 +856,10 @@ contains
       call self%register_implemented_routines((/source_do_surface/))
 
       call self%register_dependency(self%id_sil, 'sil', 'mol Si L-1', 'silicate')
-      call self%register_diagnostic_variable(self%id_xksi, 'xksi', 'mol Si L-1', 'silicate half saturation', missing_value = 2.e-6_rk)
-      call self%register_dependency(self%id_xksi_prev, 'xksi','mol Si L-1', 'silicate half saturation')
+      call self%register_diagnostic_variable(self%id_xksi, 'xksi', 'mol Si L-1', 'silicate half saturation') !, missing_value = 2.e-6_rk)
+      !call self%register_dependency(self%id_xksi_prev, 'xksi','mol Si L-1', 'silicate half saturation')
       call self%register_diagnostic_variable(self%id_xksimax_right, 'xksimax_right', '-', 'diagnostic of xksimax_right')
-      call self%register_dependency(self%id_nday_year, standard_variables%number_of_days_since_start_of_the_year)
+      !call self%register_dependency(self%id_nday_year, standard_variables%number_of_days_since_start_of_the_year)
 
    end subroutine
 
@@ -865,15 +871,16 @@ contains
 
       _SURFACE_LOOP_BEGIN_
          _GET_(self%id_sil, sil)
-         _GET_GLOBAL_(self%id_nday_year, nday)
-         _GET_SURFACE_(self%id_xksi_prev,xksi)
+         !_GET_GLOBAL_(self%id_nday_year, nday)
+         !_GET_SURFACE_(self%id_xksi_prev,xksi)
 
          zvar = sil * sil
-         !xksimax = MAX(2.e-6_rk, self%concsil * (1._rk + 7._rk * zvar / ( self%xksilim * self%xksilim + zvar ) ) )    ! Eq 12, note self%concsil=1e-6 is hardcoded in NEMO-PISCES, p4zint.F90
-         IF(nday == nyear_len) THEN
-                 xksi = MAX(0._rk, self%concsil * (1._rk + 7._rk * zvar / ( self%xksilim * self%xksilim + zvar ) ) )    ! Eq 12, note self%concsil=1e-6 is hardcoded in NEMO-PISCES, p4zint.F90
+         xksi = MAX(0._rk, self%concsil * (1._rk + 7._rk * zvar / ( self%xksilim * self%xksilim + zvar ) ) )    ! Eq 12, note self%concsil=1e-6 is hardcoded in NEMO-PISCES, p4zint.F90
+         
+         !IF  (nday == nyear_len) THEN 
+         !        xksi = MAX(0._rk, self%concsil * (1._rk + 7._rk * zvar / ( self%xksilim * self%xksilim + zvar ) ) )    ! Eq 12, note self%concsil=1e-6 is hardcoded in NEMO-PISCES, p4zint.F90
 
-         ENDIF
+        ! ENDIF
 
          _SET_SURFACE_DIAGNOSTIC_(self%id_xksi, xksi)
 
